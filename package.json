@@ -1,0 +1,31 @@
+{
+  "name": "unishox2.siara.cc",
+  "version": "1.0.0",
+  "description": "Compressor and decompressor for short strings",
+  "main": "unishox2.js",
+  "scripts": {
+    "test": "test_unishox2.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siara-cc/Unishox_JS.git"
+  },
+  "keywords": [
+    "compression",
+    "string-compression",
+    "database-compression",
+    "iot",
+    "short-string",
+    "algorithm",
+    "cloud",
+    "cloud-cost-intelligence",
+    "cost-optimization",
+    "bandwidth-saver"
+  ],
+  "author": "Arundale Ramanathan <arun@siara.cc>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/siara-cc/Unishox_JS/issues"
+  },
+  "homepage": "https://github.com/siara-cc/Unishox_JS"
+}
