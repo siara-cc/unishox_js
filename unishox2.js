@@ -638,7 +638,7 @@ function readHCodeIdx(input, len, bit_no, usx_hcodes, usx_hcode_lens) {
 // TODO: Last value check.. Also len check in readBit
 function getStepCodeIdx(input, len, bit_no, limit) {
   var idx = 0;
-  while (bit_no < len && readBit(input, bit_no)) {
+  while (bit_no < len && readBit(input, bit_no) > 0) {
     idx++;
     bit_no++;
     if (idx == limit)
@@ -653,29 +653,28 @@ function getStepCodeIdx(input, len, bit_no, limit) {
 function getNumFromBits(input, bit_no, count) {
    var ret = 0;
    while (count--) {
-     ret += (readBit(input, bit_no) ? 1 << count : 0);
+     ret += (readBit(input, bit_no) > 0 ? 1 << count : 0);
      bit_no++;
    }
-   return [ret, bit_no];
+   return ret;
 }
 
 function readCount(input, bit_no, len) {
   const bit_len = [2, 5,  7, 9, 12, 16, 17];
   const adder = [0, 4, 36, 164, 676, 4772, 0];
-  var idx;
+  var idx = 0;
   [idx, bit_no] = getStepCodeIdx(input, len, bit_no, 5);
   if (idx == 99)
     return [-1, bit_no];
   if (bit_no + bit_len[idx] - 1 >= len)
     return [-1, bit_no];
-  var count;
-  [count, bit_no] = getNumFromBits(input, bit_no, bit_len[idx]) + adder[idx];
+  var count = getNumFromBits(input, bit_no, bit_len[idx]) + adder[idx];
   bit_no += bit_len[idx];
   return [count, bit_no];
 }
 
 function readUnicode(input, bit_no, len) {
-  var idx;
+  var idx = 0;
   [idx, bit_no] = getStepCodeIdx(input, len, bit_no, 5);
   if (idx == 99)
     return [0x7FFFFF00 + 99, bit_no];
@@ -688,7 +687,7 @@ function readUnicode(input, bit_no, len) {
     bit_no++;
     if (bit_no + uni_bit_len[idx] - 1 >= len)
       return [0x7FFFFF00 + 99, bit_no];
-    var count;
+    var count = 0;
     [count, bit_no] = getNumFromBits(input, bit_no, uni_bit_len[idx]);
     count += uni_adder[idx];
     bit_no += uni_bit_len[idx];
@@ -702,22 +701,18 @@ function writeUTF8(out, uni) {
   out += String.fromCodePoint(uni);
 }
 
-function memcpy(dest, dest_idx, src, src_idx, len) {
-  for (var i = 0; i < len; i++) {
-    dest[dest_idx + i] = src[src_idx + i];
-  }
-}
 function decodeRepeat(input, len, out, bit_no, prev_lines) {
   if (prev_lines != null) {
-    var dict_len;
-    [dict_len, bit_no] = readCount(input, bit_no, len) + NICE_LEN;
+    var dict_len = 0;
+    [dict_len, bit_no] = readCount(input, bit_no, len)
+    dict_len += NICE_LEN;
     if (dict_len < 0)
       return bit_no;
-    var dist;
+    var dist = 0;
     [dist, bit_no] = readCount(input, bit_no, len);
     if (dist < 0)
       return bit_no;
-    var ctx;
+    var ctx = 0;
     [ctx, bit_no] = readCount(input, bit_no, len);
     if (ctx < 0)
       return bit_no;
@@ -726,12 +721,12 @@ function decodeRepeat(input, len, out, bit_no, prev_lines) {
       cur_line = cur_line.previous;
     out += cur_line.data.substring(dist, dict_len);
   } else {
-    var dict_len;
+    var dict_len = 0;
     [dict_len, bit_no] = readCount(input, bit_no, len);
     dict_len += NICE_LEN;
     if (dict_len < 0)
       return bit_no;
-    var dist;
+    var dist = 0;
     [dist, bit_no] = readCount(input, bit_no, len);
     dist += (NICE_LEN - 1);
     if (dist < 0)
@@ -739,7 +734,7 @@ function decodeRepeat(input, len, out, bit_no, prev_lines) {
     //printf("Decode len: %d, dist: %d\n", dict_len - NICE_LEN, dist - NICE_LEN + 1);
     out += out.substr(out.length - dist, dict_len);
   }
-  return bit_no;
+  return [bit_no, out];
 }
 
 function unishox2_decompress_lines(input, len, usx_hcodes, usx_hcode_lens, usx_freq_seq, prev_lines) {
@@ -780,7 +775,7 @@ function unishox2_decompress_lines(input, len, usx_hcodes, usx_hcode_lens, usx_f
               continue;
             }
             if (h == USX_DICT) {
-              bit_no = decodeRepeat(input, len, out, bit_no, prev_lines);
+              [bit_no, out] = decodeRepeat(input, len, out, bit_no, prev_lines);
               h = dstate;
               continue;
             }
@@ -851,7 +846,7 @@ function unishox2_decompress_lines(input, len, usx_hcodes, usx_hcode_lens, usx_f
          }
       } else
       if (h == USX_DICT) {
-        bit_no = decodeRepeat(input, len, out, bit_no, prev_lines);
+        [bit_no, out] = decodeRepeat(input, len, out, bit_no, prev_lines);
         continue;
       } else
       if (h == USX_DELTA) {
