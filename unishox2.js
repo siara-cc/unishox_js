@@ -17,8 +17,8 @@
  *
  */
 
-var USX_HCODES_DFLT = [0x00, 0x40, 0xE0, 0x80, 0xC0];
-var USX_HCODE_LENS_DFLT = [2, 2, 3, 2, 3];
+var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0xE0, 0x80, 0xC0]);
+var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 3, 2, 3]);
 var USX_FREQ_SEQ_DFLT = null;
 
 const USX_ALPHA = 0;
@@ -27,36 +27,34 @@ const USX_NUM = 2;
 const USX_DICT = 3;
 const USX_DELTA = 4;
 
-var usx_sets = [[  0, ' ', 'e', 't', 'a', 'o', 'i', 'n',
+var usx_sets = [new Uint8Array([  0, ' ', 'e', 't', 'a', 'o', 'i', 'n',
                  's', 'r', 'l', 'c', 'd', 'h', 'u', 'p', 'm', 'b', 
-                 'g', 'w', 'f', 'y', 'v', 'k', 'q', 'j', 'x', 'z'],
-                ['"', '{', '}', '_', '<', '>', ':', '\n',
+                 'g', 'w', 'f', 'y', 'v', 'k', 'q', 'j', 'x', 'z']),
+                new Uint8Array(['"', '{', '}', '_', '<', '>', ':', '\n',
                    0, '[', ']', '\\', ';', '\'', '\t', '@', '*', '&',
-                 '?', '!', '^', '|', '\r', '~', '`', 0, 0, 0],
-                [  0, ',', '.', '/', '(', ')', '-', '1',
+                 '?', '!', '^', '|', '\r', '~', '`', 0, 0, 0]),
+                new Uint8Array([  0, ',', '.', '/', '(', ')', '-', '1',
                  '0', '9', '2', '3', '4', '5', '6', '7', '8', ' ',
-                 '=', '+', '$', '%', '#', 0, 0, 0, 0, 0]];
+                 '=', '+', '$', '%', '#', 0, 0, 0, 0, 0])];
 
 // Stores position of letter in usx_sets.
 // First 3 bits - position in usx_hcodes
 // Next  5 bits - position in usx_vcodes
 var usx_code_94 = new Array(94);
 
-var usx_vcodes = [ 0x00, 0x40, 0x60, 0x80, 0x90, 0xA0, 0xB0,
-                   0xC0, 0xD0, 0xD8, 0xE0, 0xE4, 0xE8, 0xEC,
-                   0xEE, 0xF0, 0xF2, 0xF4, 0xF6, 0xF7, 0xF8,
-                   0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF ];
-var usx_vcode_lens = [  2,    3,    3,    4,    4,    4,    4,
-                        4,    5,    5,    6,    6,    6,    7,
-                        7,    7,    7,    7,    8,    8,    8,
-                        8,    8,    8,    8,    8,    8,    8 ];
+var usx_vcodes = new Uint8Array(
+  [ 0x00, 0x40, 0x60, 0x80, 0x90, 0xA0, 0xB0,
+    0xC0, 0xD0, 0xD8, 0xE0, 0xE4, 0xE8, 0xEC,
+    0xEE, 0xF0, 0xF2, 0xF4, 0xF6, 0xF7, 0xF8,
+    0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF ]);
+var usx_vcode_lens = new Uint8Array(
+  [  2,    3,    3,    4,    4,    4,    4,
+     4,    5,    5,    6,    6,    6,    7,
+     7,    7,    7,    7,    8,    8,    8,
+     8,    8,    8,    8,    8,    8,    8 ];
 
-var usx_freq_codes = [(1 << 5) + 25, (1 << 5) + 26, (1 << 5) + 27, (2 << 5) + 23, (2 << 5) + 24, (2 << 5) + 25];
+var usx_freq_codes = new Uint8Array([(1 << 5) + 25, (1 << 5) + 26, (1 << 5) + 27, (2 << 5) + 23, (2 << 5) + 24, (2 << 5) + 25]);
 
-const UTF8_MASK = [0xE0, 0xF0, 0xF8];
-const UTF8_PREFIX = [0xC0, 0xE0, 0xF0];
-
-var to_match_repeats = 1;
 var NICE_LEN = 5;
 
 const RPT_CODE = ((2 << 5) + 26);
@@ -117,14 +115,14 @@ function init_coder() {
   is_inited = 1;
 }
 
-var usx_mask = [0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF];
+var usx_mask = new Uint8Array([0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF]);
 function append_bits(out, ol, code, clen) {
 
   var cur_bit;
   var blen;
   var a_byte;
 
-  //printf("%d,%x,%d,%d\n", ol, code, clen, state);
+  //console.log(util.format("%d,%x,%d,%d\n", ol, code, clen, state));
 
   while (clen > 0) {
      cur_bit = ol % 8;
@@ -181,40 +179,33 @@ function append_code(out, ol, code, state, usx_hcodes, usx_hcode_lens) {
   return [append_bits(out, ol, usx_vcodes[vcode], usx_vcode_lens[vcode]), state];
 }
 
+const count_bit_lens = new Uint8Array([2, 4, 7, 11, 16]);
+const count_adder = [4, 20, 148, 2196, 67732];
+// First five bits are code and Last three bits of codes represent length
+const count_codes = new Uint8Array([0x01, 0x82, 0xC3, 0xE4, 0xF4]);
 function encodeCount(out, ol, count) {
-  // First five bits are code and Last three bits of codes represent length
-  const codes = [0x01, 0x82, 0xC3, 0xE4, 0xF5, 0xFD];
-  const bit_len = [2, 5, 7, 9, 12, 16];
-  const adder = [0, 4, 36, 164, 676, 4772];
-  var till = 0;
-  for (var i = 0; i < 6; i++) {
-    till += (1 << bit_len[i]);
-    if (count < till) {
-      ol = append_bits(out, ol, (codes[i] & 0xF8), codes[i] & 0x07);
-      var count16 = (count - adder[i]) << (16 - bit_len[i]);
-      if (bit_len[i] > 8) {
+  for (var i = 0; i < 5; i++) {
+    if (count < count_adder[i]) {
+      ol = append_bits(out, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
+      var count16 = (count - (i ? count_adder[i - 1] : 0)) << (16 - count_bit_lens[i]);
+      if (count_bit_lens[i] > 8) {
         ol = append_bits(out, ol, count16 >> 8, 8);
-        ol = append_bits(out, ol, count16 & 0xFF, bit_len[i] - 8);
+        ol = append_bits(out, ol, count16 & 0xFF, count_bit_lens[i] - 8);
       } else
-        ol = append_bits(out, ol, count16 >> 8, bit_len[i]);
+        ol = append_bits(out, ol, count16 >> 8, count_bit_lens[i]);
       return ol;
     }
   }
   return ol;
 }
 
-const uni_bit_len = [6, 12, 14, 16, 21];
+const uni_bit_len = new Uint8Array([6, 12, 14, 16, 21]);
 const uni_adder = [0, 64, 4160, 20544, 86080];
 
 function encodeUnicode(out, ol, code, prev_code) {
   // First five bits are code and Last three bits of codes represent length
   //const byte codes[8] = {0x00, 0x42, 0x83, 0xA3, 0xC3, 0xE4, 0xF5, 0xFD};
-  const codes = [0x01, 0x82, 0xC3, 0xE4, 0xF5, 0xFD];
-  if (code == 0x3002) {
-    ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-    ol = append_bits(out, ol, 0xE0, 4);
-    return ol;
-  }
+  const codes = new Uint8Array([0x01, 0x82, 0xC3, 0xE4, 0xF5, 0xFD]);
   var till = 0;
   var orig_ol = ol;
   var diff = code - prev_code;
@@ -253,25 +244,41 @@ function encodeUnicode(out, ol, code, prev_code) {
 }
 
 function readUTF8(input, len, l, utf8len) {
-  var bc = 0;
-  var uni = 0;
-  var c_in = input[l];
-  for (; bc < 3; bc++) {
-    if (UTF8_PREFIX[bc] == (c_in & UTF8_MASK[bc]) && len - (bc + 1) > l) {
-      var j = 0;
-      uni = c_in & ~UTF8_MASK[bc] & 0xFF;
-      do {
-        uni <<= 6;
-        uni += (input[l + j + 1] & 0x3F);
-      } while (j++ < bc);
-      break;
-    }
+  var ret = 0;
+  var utf8len = 0;
+  if (l < (len - 1) && (input[l] & 0xE0) == 0xC0 && (input[l + 1] & 0xC0) == 0x80) {
+    utf8len = 2;
+    ret = (input[l] & 0x1F);
+    ret <<= 6;
+    ret += (input[l + 1] & 0x3F);
+    if (ret < 0x80)
+      ret = 0;
+  } else
+  if (l < (len - 2) && (input[l] & 0xF0) == 0xE0 && (input[l + 1] & 0xC0) == 0x80
+          && (input[l + 2] & 0xC0) == 0x80) {
+    utf8len = 3;
+    ret = (input[l] & 0x0F);
+    ret <<= 6;
+    ret += (input[l + 1] & 0x3F);
+    ret <<= 6;
+    ret += (input[l + 2] & 0x3F);
+    if (ret < 0x0800)
+      ret = 0;
+  } else
+  if (l < (len - 3) && (input[l] & 0xF8) == 0xF0 && (input[l + 1] & 0xC0) == 0x80
+          && (input[l + 2] & 0xC0) == 0x80 && (input[l + 3] & 0xC0) == 0x80) {
+    utf8len = 4;
+    ret = (input[l] & 0x07);
+    ret <<= 6;
+    ret += (input[l + 1] & 0x3F);
+    ret <<= 6;
+    ret += (input[l + 2] & 0x3F);
+    ret <<= 6;
+    ret += (input[l + 3] & 0x3F);
+    if (ret < 0x10000)
+      ret = 0;
   }
-  if (bc < 3) {
-    utf8len = bc + 1;
-    return [uni, utf8len];
-  }
-  return [0, 0];
+  return [ret, utf8len];
 }
 
 function matchOccurance(input, len, l, out, ol, state, usx_hcodes, usx_hcode_lens) {
@@ -366,27 +373,55 @@ function matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hc
   return [-l, ol];
 }
 
+function getBaseCode(ch) {
+  if (ch >= '0' && ch <= '9')
+    return (ch - '0') << 4;
+  else if (ch >= 'A' && ch <= 'F')
+    return (ch - 'A' + 10) << 4;
+  else if (ch >= 'a' && ch <= 'f')
+    return (ch - 'a' + 10) << 4;
+  return 0;
+}
+
+const USX_NIB_NUM = 0;
+const USX_NIB_HEX_LOWER = 1;
+const USX_NIB_HEX_UPPER = 2;
+const USX_NIB_NOT = 3;
+function getNibbleType(ch) {
+  if (ch >= '0' && ch <= '9')
+    return USX_NIB_NUM;
+  else if (ch >= 'a' && ch <= 'f')
+    return USX_NIB_HEX_LOWER;
+  else if (ch >= 'A' && ch <= 'F')
+    return USX_NIB_HEX_UPPER;
+  return USX_NIB_NOT;
+}
+
+function append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens) {
+  ol = append_switch_code(out, ol, state);
+  ol = append_bits(out, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
+  ol = append_bits(out, ol, 0, 2);
+  return ol;
+}
+
 function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, prev_lines) {
 
-  var ptr;
-  var bits;
   var state;
 
   var l, ll, ol;
   var c_in, c_next;
   var prev_uni;
-  var is_upper, is_all_upper, is_sentence_start;
+  var is_upper, is_all_upper;
 
   init_coder();
   ol = 0;
   prev_uni = 0;
   state = USX_ALPHA;
   is_all_upper = 0;
-  is_sentence_start = 1;
+  ol = append_bits(out, ol, 0x80, 1); // magic bit
   for (l=0; l<len; l++) {
 
-    c_in = input[l];
-
+    c_in = in[l];
     if (to_match_repeats && usx_hcode_lens[USX_DICT] && l < (len - NICE_LEN + 1)) {
       if (prev_lines) {
         [l, ol] = matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hcode_lens);
@@ -403,8 +438,11 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
       }
     }
 
-    if (l && l < len - 4 && usx_hcode_lens[USX_NUM]) {
-      if (c_in == input[l - 1] && c_in == input[l + 1] && c_in == input[l + 2] && c_in == input[l + 3]) {
+    c_in = input[l];
+
+    if (l > 0 && l < len - 4 && usx_hcode_lens[USX_NUM] > 0 && c_in <= '~') {
+      if (c_in == input[l - 1] && c_in == input[l + 1] && c_in == input[l + 2] &&
+          c_in == input[l + 3]) {
         var rpt_count = l + 4;
         while (rpt_count < len && input[rpt_count] == c_in)
           rpt_count++;
@@ -417,11 +455,119 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
       }
     }
 
+    if (l <= (len - 36) && usx_hcode_lens[USX_NUM]) {
+      if (input[l + 8] === '-' && input[l + 13] === '-' 
+          && input[l + 18] === '-' && input[l + 23] === '-') {
+        var is_uid_upper = 0;
+        var uid_pos = l;
+        for (; uid_pos < l + 36; uid_pos++) {
+          var c_uid = input[uid_pos];
+          if (c_uid === '-')
+            continue;
+          c_uid = getNibbleType(c_uid);
+          if (c_uid < USX_NIB_NOT) {
+            if (c_uid == USX_NIB_HEX_UPPER)
+              is_uid_upper = 1;
+            continue;
+          }
+          break;
+        }
+        if (uid_pos == l + 36) {
+          ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
+          ol = append_bits(out, ol, (is_uid_upper ? 0xF0 : 0xC0), (is_uid_upper ? 5 : 3));
+          for (uid_pos = l; uid_pos < l + 36; uid_pos++) {
+            var c_uid = input[uid_pos];
+            if (c_uid != '-')
+              ol = append_bits(out, ol, getBaseCode(c_uid), 4);
+          }
+          //printf("GUID:\n");
+          l += 35;
+          continue;
+        }
+      }
+    }
+
+    if (l < (len - 5) && usx_hcode_lens[USX_NUM]) {
+      char hex_type = USX_NIB_NUM;
+      int hex_len = 0;
+      do {
+        char nib_type = getNibbleType(in[l + hex_len]);
+        if (nib_type == USX_NIB_NOT)
+          break;
+        if (nib_type != USX_NIB_NUM) {
+          if (hex_type != nib_type)
+            break;
+          hex_type = nib_type;
+        }
+        hex_len++;
+      } while (l + hex_len < len);
+      if (hex_len > 10 && hex_type == USX_NIB_NUM)
+        hex_type = USX_NIB_HEX_LOWER;
+      if ((hex_type == USX_NIB_HEX_LOWER || hex_type == USX_NIB_HEX_UPPER) && hex_len > 3) {
+        ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
+        ol = append_bits(out, ol, (hex_type == USX_NIB_HEX_LOWER ? 0x80 : 0xE0), (hex_type == USX_NIB_HEX_LOWER ? 2 : 4));
+        ol = encodeCount(out, ol, hex_len);
+        do {
+          ol = append_bits(out, ol, getBaseCode(in[l++]), 4);
+        } while (--hex_len);
+        l--;
+        continue;
+      }
+    }
+
+    if (usx_templates != NULL) {
+      int i;
+      for (i = 0; i < 5; i++) {
+        if (usx_templates[i]) {
+          int rem = strlen(usx_templates[i]);
+          int j = 0;
+          for (; j < rem && l + j < len; j++) {
+            char c_t = usx_templates[i][j];
+            c_in = in[l + j];
+            if (c_t == 'f' || c_t == 'F') {
+              if (getNibbleType(c_in) != (c_t == 'f' ? USX_NIB_HEX_LOWER : USX_NIB_HEX_UPPER)
+                       && getNibbleType(c_in) != USX_NIB_NUM) {
+                break;
+              }
+            } else
+            if (c_t == 'r' || c_t == 't' || c_t == 'o') {
+              if (c_in < '0' || c_in > (c_t == 'r' ? '7' : (c_t == 't' ? '3' : '1')))
+                break;
+            } else
+            if (c_t != c_in)
+              break;
+          }
+          if (((float)j / rem) > 0.66) {
+            //printf("%s\n", usx_templates[i]);
+            rem = rem - j;
+            ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
+            ol = append_bits(out, ol, 0, 1);
+            ol = append_bits(out, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
+            ol = encodeCount(out, ol, rem);
+            for (int k = 0; k < j; k++) {
+              char c_t = usx_templates[i][k];
+              if (c_t == 'f' || c_t == 'F')
+                ol = append_bits(out, ol, getBaseCode(in[l + k]), 4);
+              else if (c_t == 'r' || c_t == 't' || c_t == 'o') {
+                c_t = (c_t == 'r' ? 3 : (c_t == 't' ? 2 : 1));
+                ol = append_bits(out, ol, (in[l + k] - '0') << (8 - c_t), c_t);
+              }
+            }
+            l += j;
+            l--;
+            break;
+          }
+        }
+      }
+      if (i < 5)
+        continue;
+    }
+
     if (usx_freq_seq != NULL) {
       for (var i = 0; i < 6; i++) {
         var seq_len = usx_freq_seq[i].length;
         if (len - seq_len > 0 && l < len - seq_len) {
-          if (memcmp(usx_freq_seq[i], input + l, seq_len) == 0 && usx_hcode_lens[usx_freq_codes[i] >> 5]) {
+          if (usx_freq_seq[i].substring(0, seq_len) == input.substring(l, l + seq_len) && usx_hcode_lens[usx_freq_codes[i] >> 5]) {
             [ol, state] = append_code(out, ol, usx_freq_codes[i], state, usx_hcodes, usx_hcode_lens);
             l += seq_len;
             i = -1;

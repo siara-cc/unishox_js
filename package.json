@@ -4,7 +4,7 @@
   "description": "Compressor and decompressor for short strings",
   "main": "unishox2.js",
   "scripts": {
-    "test": "test_unishox2.js"
+    "test": "unishox2.test.js"
   },
   "repository": {
     "type": "git",
