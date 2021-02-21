@@ -16,7 +16,7 @@ Note: The present byte-code version is 2 and it replaces Unishox 1.  Unishox 1 i
 
 # How it works
 
-Unishox is an hybrid encoder which uses entropy, dictionary and delta coding techniques.  It works by assigning fixed prefix-free codes for each letter in the printable ANSI character sets.  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used.  Pleaes read [this article](https://github.com/siara-cc/Unishox/Unishox_Article_2.pdf?raw=true) to find out more.
+Unishox is an hybrid encoder which uses entropy, dictionary and delta coding techniques.  It works by assigning fixed prefix-free codes for each letter in the printable ANSI character set.  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used.  Please read [this article](https://github.com/siara-cc/Unishox/blob/master/Unishox_Article_2.pdf?raw=true) to find out more.
 
 # Getting started
 
@@ -51,7 +51,7 @@ To compress and decompress strings in your application, import `unishox2.js`:
 var usx = require("./unishox2.js");
 ```
 
-The functions expect a Javascript `string` or `Uint8Array` as Input and Output an `Uint8Array`.
+The function expects a Javascript `string` or `Uint8Array` as Input and Output an `Uint8Array`.
 
 ### Simple API
 
@@ -60,7 +60,7 @@ In its simplest form, just pass the string you want to compress, its length and 
 ```Javascript
 var usx = require("./unishox2.js")
 var my_str = "The quick brown fox jumped over the lazy dog";
-var out_buf = new Uint8Array(100);
+var out_buf = new Uint8Array(100); // A buffer with arbitrary length
 var out_len = usx.unishox2_compress_simple(my_str, my_str.length, out_buf);
 var out_str = usx.unishox2_decompress_simple(out_buf, out_len);
 console.log(out_str);
