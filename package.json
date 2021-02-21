@@ -4,7 +4,7 @@
   "description": "Compressor and decompressor for short strings",
   "main": "unishox2.js",
   "scripts": {
-    "test": "unishox2.test.js"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -27,5 +27,8 @@
   "bugs": {
     "url": "https://github.com/siara-cc/Unishox_JS/issues"
   },
-  "homepage": "https://github.com/siara-cc/Unishox_JS"
+  "homepage": "https://github.com/siara-cc/Unishox_JS",
+  "devDependencies": {
+    "jest": "^26.6.3"
+  }
 }

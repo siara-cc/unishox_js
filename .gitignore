@@ -1,4 +1,6 @@
 .vscode*
 *.usx
-test.js
+*.dsx
+test*.js.dsx
 
+node_modules
