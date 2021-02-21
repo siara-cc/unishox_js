@@ -6,6 +6,9 @@
   "scripts": {
     "test": "jest"
   },
+  "publishConfig": {
+    "registry":"https://npm.pkg.github.com"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/siara-cc/Unishox_JS.git"
