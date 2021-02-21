@@ -1,60 +1,102 @@
-# Unishox - Guaranteed Compression for Unicode Short Strings
+# Unishox Javascript Library - Guaranteed Compression for Short Strings
 
 This is a C library for compressing short strings.  It was developed to individually compress and decompress small strings. In general compression utilities such as `zip`, `gzip` do not compress short strings well and often expand them. They also use lots of memory which makes them unusable in constrained environments like Arduino.
 
-Note: The present byte-code version is 2 and it replaces Unishox 1.  Unishox 1 is still available as unishox1.c, but it will have to be compiled manually if it is needed.
+Note: The present byte-code version is 2 and it replaces Unishox 1.  Unishox 1 is still available [here](https://github.com/siara-cc/Unishox) only as a C Library.
 
 # Applications
 
-- Compression for low memory devices such as Arduino and ESP8266
-- Compression of Chat application text exchange include Emojis
+- Compression for low memory devices such as Arduino, ESP8266 and ESP32
+- Sending messages over Websockets
+- Compression of Chat application text exchange including Emojis
 - Storing compressed text in database
-- Faster retrieval speed when used as join keys
-- Bandwidth and storage cost reduction for Cloud
+- Bandwidth and storage cost reduction for Cloud technologies
 
-![Promo video](Banner1.png?raw=true)
+![Promo Picture](Banner1.png?raw=true)
 
 # How it works
 
-Unishox is an hybrid encoder (entropy, dictionary and delta coding).  It works by assigning fixed prefix-free codes for each letter in the above Character Set (entropy coding).  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used. More information is available in [this article](Unishox_Article_2.pdf?raw=true).
+Unishox is an hybrid encoder which uses entropy, dictionary and delta coding techniques.  It works by assigning fixed prefix-free codes for each letter in the printable ANSI character sets.  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used.  Pleaes read [this article](https://github.com/siara-cc/Unishox/Unishox_Article_2.pdf?raw=true) to find out more.
 
-# Compiling
+# Getting started
 
-To compile, just use `make` or use gcc as follows:
+This is a Node.js library, but is made to work even with older Javascript versions to make it compatible with low memory IoT devices.
+There are no dependencies.  `Unishox2.js` is all you will need to integrate with your application.
+
+## Running Unit tests (using Jest)
+
+To run unit tests, clone this repo and issue following commands, assuming `npm` is installed:
 
 ```sh
-gcc -o unishox2 test_unishox2.c unishox2.c
+npm update
+npm run test
 ```
 
-For testing the compiled program, use:
+## Trying it out with your own strings
+
+You can check out what kind of compression you get with what strings using demo_unishox2.js:
 
 ```sh
-./test_unishox2 -t
+node demo_unishox2.js "The quick brown fox jumped over the lazy dog"
 ```
 
-# API
+and the output would be:
+![Output 1](Output1.png?raw=true)
 
-```C
-int unishox1_compress_simple(const char *in, int len, char *out);
-int unishox1_decompress_simple(const char *in, int len, char *out);
+## Using it in your application
+
+To compress and decompress strings in your application, import `unishox2.js`:
+
+```Javascript
+var usx = require("./unishox2.js");
 ```
 
-# Usage
+The functions expect a Javascript `string` or `Uint8Array` as Input and Output an `Uint8Array`.
 
-To see Unishox in action, simply try to compress a string:
+### Simple API
 
+In its simplest form, just pass the string you want to compress, its length and a UintArray to receive the compressed contents.  While the library can make the output array, it is faster to supply it.  Since this technology guarantees compression, the output buffer needs be only as lengthy as the input string 99.99% of times:
+
+```Javascript
+var usx = require("./unishox2.js")
+var my_str = "The quick brown fox jumped over the lazy dog";
+var out_buf = new Uint8Array(100);
+var out_len = usx.unishox2_compress_simple(my_str, my_str.length, out_buf);
+var out_str = usx.unishox2_decompress_simple(out_buf, out_len);
+console.log(out_str);
 ```
-./test_unishox2 "Hello World"
-```
 
-To compress and decompress a file, use:
+As shown above, the original string can be obtained by passing the UintArray and length to `unishox2_decompress_simple`.
 
-```
-./test_unishox2 -c <input_file> <compressed_file>
-./test_unishox2 -d <compressed_file> <decompressed_file>
-```
+### More advanced API for customizing according to your context
 
-Unishox does not give good ratios compressing files for compressing binary files.
+Depending on the input string, you can press more juice out of the compressor by hinting the type of text being compressed.  Following are the parameters that can be tuned:
+
+- Composition of text, numbers, symbols, repetitions, unicode characters
+- Frequently occurring sequences
+- Templates such as for Date/Time, GUID and Phone numbers
+
+16 presets are provided with the demo program based on the type of text you may intend to compress:
+
+0. Default, that is optimized for all types of texts
+1. Alphabets and space only
+2. Alphanumeric and space only
+3. Alphanumeric, symbols and space only
+4. Alphanumeric, symbols and space only, favouring English sentences
+5. Support all types, but favour Alphanumeric
+6. Support all types, but favour repeating sequences
+7. Support all types, but favour symbols
+8. Support all types, but favour Umlaut characters
+9. Favor all types except repeating sequences
+10. Favor all types except Unicode characters
+11. Favor all types, especially English text, except Unicode characters
+12. Favor URLs
+13. Favor JSON
+14. Favor JSON, but no Unicode Characters
+15. Favor XML
+16. Favor HTML
+
+Please refer to `unishox_compress_lines` and `unishox_decompress_lines` functions in the library to make use of these. However in most cases, the default Simple API provides optimimum compression.
 
 # Character Set
 
