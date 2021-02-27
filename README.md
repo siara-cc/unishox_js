@@ -23,6 +23,8 @@ Unishox is an hybrid encoder which uses entropy, dictionary and delta coding tec
 This is a Node.js library, but is made to work even with older Javascript versions to make it compatible with low memory IoT devices.
 There are no dependencies.  `Unishox2.js` is all you will need to integrate with your application.
 
+This library is available at `npm` at `https://www.npmjs.com/package/unishox2.siara.cc` and can be included in your Javascript projects with `npm i unishox2.siara.cc`. See below on how to include it in your code.
+
 ## Running Unit tests (using Jest)
 
 To run unit tests, clone this repo and issue following commands, assuming `npm` is installed:
