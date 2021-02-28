@@ -11,7 +11,7 @@ var buf = new Uint8Array(512);
 function run_test(str) {
 
   var buf_len = usx2.unishox2_compress(str, str.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
-  var out_str = usx2.unishox2_decompress(buf, buf_len, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  var out_str = usx2.unishox2_decompress(buf, buf_len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   test(str + " (" + buf_len + "/" + str.length + " = " + (Math.round((str.length-buf_len)*1000/str.length) / 10) + "%)", () => {
     expect(out_str).toBe(str);
   });

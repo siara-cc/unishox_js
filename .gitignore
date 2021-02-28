@@ -2,5 +2,5 @@
 *.usx
 *.dsx
 test*.js.dsx
-
+.npmrc
 node_modules
