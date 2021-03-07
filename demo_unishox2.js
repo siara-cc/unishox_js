@@ -61,6 +61,9 @@ const USX_PSETS = [
   [USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_XML],                              // 15 USX_PSET_XML
   [USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_HTML]];                            // 16 USX_PSET_HTML
 
+const usx = require('./unishox2');
+var fs = require("fs");
+
 function unishox2_compress_preset_lines(input, len, out, pset, prev_lines) {
   switch (pset) {
     case 0:
@@ -144,17 +147,15 @@ function unishox2_decompress_preset_lines(input, len, out, pset, prev_lines) {
 var args = process.argv.slice(1);
 argv = args.length;
 
-const usx2 = require('./unishox2');
-var fs = require("fs");
 var cbuf = new Uint8Array(4096);
-var buf = new Uint8Array(8192);
+var dbuf = new Uint8Array(8192);
 
 var len, tot_len, clen, ctot, dlen, l;
 var perc;
 var fp, wfp;
 var bytes_read;
 
-if (argv >= 4 && strcmp(args[1], "-c") == 0) {
+if (argv >= 4 && args[1] == "-c") {
    var preset = 0;
    if (argv > 4)
      preset = parseInt(args[4], 10);
@@ -173,14 +174,16 @@ if (argv >= 4 && strcmp(args[1], "-c") == 0) {
      return;
    }
    do {
-     bytes_read = fs.readSync(fd, cbuf, 0, cbuf.length, null);
+     bytes_read = fs.readSync(fp, cbuf, 0, cbuf.length, null);
      if (bytes_read > 0) {
         clen = unishox2_compress_preset_lines(cbuf, bytes_read, dbuf, preset, null);
+        console.log(bytes_read);
+        console.log(clen);
         ctot += clen;
         tot_len += bytes_read;
         if (clen > 0) {
-           fs.write(wfp, new Uint8Array([clen >> 8]), 0, 1, null);
-           fs.write(wfp, new Uint8Array([clen && 0xFF]), 0, 1, null);
+           fs.writeSync(wfp, new Uint8Array([clen >> 8]), 0, 1, null);
+           fs.writeSync(wfp, new Uint8Array([clen && 0xFF]), 0, 1, null);
            if (clen != fs.writeSync(wfp, dbuf, 0, clen, null)) {
               return 1;
            }
@@ -193,7 +196,7 @@ if (argv >= 4 && strcmp(args[1], "-c") == 0) {
    console.log("\nBytes (Compressed/Original=Savings%%): %ld/%ld=", ctot, tot_len);
    console.log("%.2f%%", perc);
 } else
-if (argv >= 4 && strcmp(args[1], "-d") == 0) {
+if (argv >= 4 && args[1] == "-d") {
    var preset = 0;
    if (argv > 4)
      preset = parseInt(args[4], 10);
@@ -211,10 +214,10 @@ if (argv >= 4 && strcmp(args[1], "-d") == 0) {
    }
    do {
      //memset(dbuf, 0, sizeof(dbuf));
-     bytes_read = fs.readSync(fd, dbuf, 0, 2, null);
+     bytes_read = fs.readSync(fp, dbuf, 0, 2, null);
      var len_to_read = dbuf[0] << 8;
      len_to_read += dbuf[1];
-     bytes_read = fs.readSync(fd, dbuf, 0, len_to_read, null);
+     bytes_read = fs.readSync(fp, dbuf, 0, len_to_read, null);
      if (bytes_read > 0) {
         dlen = unishox2_decompress_preset_lines(dbuf, bytes_read, cbuf, preset, null);
         if (dlen > 0) {
@@ -255,7 +258,7 @@ if (argv >= 4 && (args[1] == "-g" || args[1] == "-G")) {
     var max_len = 0;
     var cur_pos = 0;
     var max_line_length = 1024;
-    while (fs.readSync(fd, cbuf, 0, max_line_length, cur_pos) != 0) {
+    while (fs.readSync(fp, cbuf, 0, max_line_length, cur_pos) != 0) {
       len = 0;
       while (cbuf[len] != '\r' && cbuf[len != '\n'])
         len++;
@@ -296,16 +299,17 @@ if (argv == 2 || (argv == 3 && parseInt(args[2], 10) > 0)) {
   var pset = 0;
   if (argv > 2)
     pset = parseInt(args[2], 10);
-  var buf_len = usx2.unishox2_compress(args[1], args[1].length, buf, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
-  var out_str = usx2.unishox2_decompress(buf, buf_len, null, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
+  var buf_len = usx.unishox2_compress(args[1], args[1].length, dbuf, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
+  var out_str = usx.unishox2_decompress(dbuf, buf_len, null, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
+  var input_len = encodeURI(args[1]).split(/%..|./).length - 1;
   console.log("");
   console.log("Input: " + args[1]);
   console.log("");
-  console.log("Compressed (Uint8Array) : " + buf.slice(0, buf_len));
+  console.log("Compressed (Uint8Array) : " + dbuf.slice(0, buf_len));
   console.log("");
   console.log("Decompressed: " + out_str);
   console.log("");
-  console.log("Compression ratio:(" + buf_len + "/" + args[0].length + " = " + (Math.round((args[1].length-buf_len)*1000/args[1].length) / 10) + "% savings)");
+  console.log("Compression ratio:(" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "% savings)");
   console.log("");
 } else {
    console.log("Unishox (byte format version: %s)", UNISHOX_VERSION);

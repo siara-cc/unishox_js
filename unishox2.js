@@ -373,12 +373,12 @@ function matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hc
 }
 
 function getBaseCode(ch) {
-  if (ch >= '0' && ch <= '9')
-    return (ch.charCodeAt(0) - 48) << 4;
-  else if (ch >= 'A' && ch <= 'F')
-    return (ch.charCodeAt(0) - 65 + 10) << 4;
-  else if (ch >= 'a' && ch <= 'f')
-    return (ch.charCodeAt(0) - 97 + 10) << 4;
+  if (ch >= 48 && ch <= 57)
+    return (ch - 48) << 4;
+  else if (ch >= 65 && ch <= 70)
+    return (ch - 65 + 10) << 4;
+  else if (ch >= 97 && ch <= 102)
+    return (ch - 97 + 10) << 4;
   return 0;
 }
 
@@ -387,11 +387,11 @@ const USX_NIB_HEX_LOWER = 1;
 const USX_NIB_HEX_UPPER = 2;
 const USX_NIB_NOT = 3;
 function getNibbleType(ch) {
-  if (ch >= '0' && ch <= '9')
+  if (ch >= 48 && ch <= 57)
     return USX_NIB_NUM;
-  else if (ch >= 'a' && ch <= 'f')
+  else if (ch >= 97 && ch <= 102)
     return USX_NIB_HEX_LOWER;
-  else if (ch >= 'A' && ch <= 'F')
+  else if (ch >= 65 && ch <= 70)
     return USX_NIB_HEX_UPPER;
   return USX_NIB_NOT;
 }
@@ -403,6 +403,9 @@ function append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens) {
   return ol;
 }
 
+const usx_spl_code = new Uint8Array([0, 0xE0, 0xC0, 0xF0]);
+const usx_spl_code_len = new Uint8Array([1, 4, 3, 4]);
+
 function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, prev_lines) {
 
   var state;
@@ -412,6 +415,8 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
   var prev_uni;
   var is_upper, is_all_upper;
 
+  var is_str = (typeof(input) == "string");
+
   init_coder();
   ol = 0;
   prev_uni = 0;
@@ -420,7 +425,6 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
   ol = append_bits(out, ol, 0x80, 1); // magic bit
   for (l=0; l<len; l++) {
 
-    c_in = input[l];
     if (usx_hcode_lens[USX_DICT] > 0 && l < (len - NICE_LEN + 1)) {
       if (prev_lines) {
         [l, ol] = matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hcode_lens);
@@ -438,7 +442,6 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
     }
 
     c_in = input[l];
-
     if (l > 0 && len > 4 && l < len - 4 && usx_hcode_lens[USX_NUM] > 0 && c_in <= '~') {
       if (c_in == input[l - 1] && c_in == input[l + 1] && c_in == input[l + 2] &&
           c_in == input[l + 3]) {
@@ -455,13 +458,14 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
     }
 
     if (l <= (len - 36) && usx_hcode_lens[USX_NUM] > 0) {
-      if (input[l + 8] === '-' && input[l + 13] === '-' 
-          && input[l + 18] === '-' && input[l + 23] === '-') {
+      var hyp_code = (is_str ? '-' : 45);
+      if (input[l + 8] === hyp_code && input[l + 13] === hyp_code
+          && input[l + 18] === hyp_code && input[l + 23] === hyp_code) {
         var is_uid_upper = false;
         var uid_pos = l;
         for (; uid_pos < l + 36; uid_pos++) {
-          var c_uid = input[uid_pos];
-          if (c_uid === '-')
+          var c_uid = (is_str ? input.charCodeAt(uid_pos) : input[uid_pos]);
+          if (c_uid === hyp_code)
             continue;
           c_uid = getNibbleType(c_uid);
           if (c_uid < USX_NIB_NOT) {
@@ -475,8 +479,8 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
           ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
           ol = append_bits(out, ol, (is_uid_upper ? 0xF0 : 0xC0), (is_uid_upper ? 5 : 3));
           for (uid_pos = l; uid_pos < l + 36; uid_pos++) {
-            var c_uid = input[uid_pos];
-            if (c_uid != '-')
+            var c_uid = (is_str ? input.charCodeAt(uid_pos) : input[uid_pos]);
+            if (c_uid !== 45) // '-'
               ol = append_bits(out, ol, getBaseCode(c_uid), 4);
           }
           //printf("GUID:\n");
@@ -490,7 +494,8 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
       var hex_type = USX_NIB_NUM;
       var hex_len = 0;
       do {
-        var nib_type = getNibbleType(input[l + hex_len]);
+        var c_uid = (is_str ? input.charCodeAt(l + hex_len) : input[l + hex_len]);
+        var nib_type = getNibbleType(c_uid);
         if (nib_type == USX_NIB_NOT)
           break;
         if (nib_type != USX_NIB_NUM) {
@@ -507,7 +512,9 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
         ol = append_bits(out, ol, (hex_type == USX_NIB_HEX_LOWER ? 0x80 : 0xE0), (hex_type == USX_NIB_HEX_LOWER ? 2 : 4));
         ol = encodeCount(out, ol, hex_len);
         do {
-          ol = append_bits(out, ol, getBaseCode(input[l++]), 4);
+          var c_uid = (is_str ? input.charCodeAt(l) : input[l]);
+          ol = append_bits(out, ol, getBaseCode(c_uid), 4);
+          l++;
         } while (--hex_len > 0);
         l--;
         continue;
@@ -522,7 +529,7 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
           var j = 0;
           for (; j < rem && l + j < len; j++) {
             var c_t = usx_templates[i][j];
-            c_in = input[l + j];
+            c_in = (is_str ? input.charCodeAt(l + j) : input[l + j]);
             if (c_t === 'f' || c_t === 'F') {
               if (getNibbleType(c_in) != (c_t === 'f' ? USX_NIB_HEX_LOWER : USX_NIB_HEX_UPPER)
                        && getNibbleType(c_in) != USX_NIB_NUM) {
@@ -533,7 +540,7 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
               if (c_in < '0' || c_in > (c_t === 'r' ? '7' : (c_t === 't' ? '3' : '1')))
                 break;
             } else
-            if (c_t !== c_in)
+            if (c_t.charCodeAt(0) !== c_in)
               break;
           }
           if ((j / rem) > 0.66) {
@@ -545,11 +552,12 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
             ol = encodeCount(out, ol, rem);
             for (var k = 0; k < j; k++) {
               var c_t = usx_templates[i][k];
-              if (c_t === 'f' || c_t === 'F')
-                ol = append_bits(out, ol, getBaseCode(input[l + k]), 4);
-              else if (c_t === 'r' || c_t === 't' || c_t === 'o') {
+              c_in = (is_str ? input.charCodeAt(l + k) : input[l + k]);
+              if (c_t === 'f' || c_t === 'F') {
+                ol = append_bits(out, ol, getBaseCode(c_in), 4);
+              } else if (c_t === 'r' || c_t === 't' || c_t === 'o') {
                 c_t = (c_t === 'r' ? 3 : (c_t === 't' ? 2 : 1));
-                ol = append_bits(out, ol, (input[l + k] - '0') << (8 - c_t), c_t);
+                ol = append_bits(out, ol, (c_in - 48) << (8 - c_t), c_t);
               }
             }
             l += j;
@@ -578,10 +586,10 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
       if (i < 6)
         continue;
     }
-    c_in = input[l];
+    c_in = (is_str ? input.charCodeAt(l) : input[l]);
 
     is_upper = false;
-    if (c_in >= 'A' && c_in <= 'Z')
+    if (c_in >= 65 && c_in <= 90) // A-Z
       is_upper = true;
     else {
       if (is_all_upper) {
@@ -607,12 +615,13 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
     }
     c_next = 0;
     if (l+1 < len)
-      c_next = input[l+1];
+      c_next = (is_str ? input[l + 1] : String.fromCharCode(input[l + 1]));
 
-    if (c_in >= ' ' && c_in <= '~') {
+    if (c_in >= 32 && c_in <= 126) { // ' ' to '~'
       if (is_upper && !is_all_upper) {
         for (ll=l+4; ll>=l && ll<len; ll--) {
-          if (input[ll] < 'A' || input[ll] > 'Z')
+          var c_u = (is_str ? input.charCodeAt(ll) : input[ll]);
+          if (c_u < 65 || c_u > 90) // ~ A-Z
             break;
         }
         if (ll == l-1) {
@@ -622,16 +631,15 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
           is_all_upper = true;
         }
       }
-      if (state == USX_DELTA && (c_in === ' ' || c_in === '.' || c_in === ',' || c_in === '\n')) {
-        var spl_code = (c_in === ',' ? 0xC0 : (c_in === '.' ? 0xE0 : (c_in === ' ' ? 0 : (c_in === '\n' ? 0xF0 : 0xFF))));
-        if (spl_code != 0xFF) {
-          var spl_code_len = (c_in === ',' ? 3 : (c_in === '.' ? 4 : (c_in === ' ' ? 1 : (c_in === '\n' ? 4 : 4))));
+      if (state == USX_DELTA) {
+        var ch_idx = " .,\n".indexOf(String.fromCharCode(c_in));
+        if (ch_idx != -1) {
           ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-          ol = append_bits(out, ol, spl_code, spl_code_len);
+          ol = append_bits(out, ol, usx_spl_code[ch_idx], usx_spl_code_len[ch_idx]);
           continue;
         }
       }
-      c_in = c_in.charCodeAt(0) - 32;
+      c_in -= 32;
       if (is_all_upper && is_upper)
         c_in += 32;
       if (c_in === 0) {
@@ -648,17 +656,17 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
         [ol, state] = append_code(out, ol, usx_code_94[c_in], state, usx_hcodes, usx_hcode_lens);
       }
     } else
-    if (c_in === '\r' && c_next === '\n') {
+    if (c_in === 13 && c_next === 10) {
       [ol, state] = append_code(out, ol, CRLF_CODE, state, usx_hcodes, usx_hcode_lens);
       l++;
     } else
-    if (c_in === '\n') {
+    if (c_in === 10) {
       [ol, state] = append_code(out, ol, LF_CODE, state, usx_hcodes, usx_hcode_lens);
     } else
-    if (c_in === '\r') {
+    if (c_in === 13) {
       [ol, state] = append_code(out, ol, CR_CODE, state, usx_hcodes, usx_hcode_lens);
     } else
-    if (c_in === '\t') {
+    if (c_in === 9) {
       [ol, state] = append_code(out, ol, TAB_CODE, state, usx_hcodes, usx_hcode_lens);
     } else {
       var uni, utf8len;
@@ -684,8 +692,7 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
         ol = encodeUnicode(out, ol, uni, prev_uni);
         //console.log("%d:%d:%d,", l, utf8len, uni);
         prev_uni = uni;
-        if (typeof(input) == 'string')
-          l--;
+        l--;
       } else {
         var bin_count = 1;
         for (var bi = l + 1; bi < len; bi++) {
@@ -898,8 +905,10 @@ function decodeRepeat(input, len, out_arr, out, bit_no, prev_lines) {
     if (out_arr == null)
       out += out.substr(out.length - dist, dict_len);
     else {
-      for (var i = 0; i < dict_len; i++)
-        out_arr[out++] = out_arr[out - dist + i];
+      for (var i = 0; i < dict_len; i++) {
+        out_arr[out] = out_arr[out - dist + i];
+        out++;
+      }
     }
   }
   return [bit_no, out];
@@ -935,7 +944,7 @@ function appendChar(out_arr, out, ch) {
   if (out_arr == null)
     out += ch;
   else
-    out_arr[out++] = ch;
+    out_arr[out++] = ch.charCodeAt(0);
   return out;
 }
 
@@ -1178,7 +1187,7 @@ function unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_le
     }
     if (dstate == USX_DELTA)
       h = USX_DELTA;
-    out += c;
+    out = appendChar(out_arr, out, c);
   }
 
   return out;
