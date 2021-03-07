@@ -78,19 +78,6 @@ function memset(array, val, size) {
     array[i] = val;
   }
 }
-function sizeof(array) {
-  return array.length;
-}
-
-function memcmp(array1, array2, length) {
-  for (var i = 0; i < length; ++i) {
-    if (array1[i] != array2[i]) {
-      return false;
-
-    }
-  }
-  return true;
-}
 
 var is_inited = 0;
 function init_coder() {
@@ -537,7 +524,7 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
               }
             } else
             if (c_t === 'r' || c_t === 't' || c_t === 'o') {
-              if (c_in < '0' || c_in > (c_t === 'r' ? '7' : (c_t === 't' ? '3' : '1')))
+              if (c_in < 48 || c_in > (c_t === 'r' ? '7' : (c_t === 't' ? '3' : '1')))
                 break;
             } else
             if (c_t.charCodeAt(0) !== c_in)
@@ -887,8 +874,10 @@ function decodeRepeat(input, len, out_arr, out, bit_no, prev_lines) {
     if (out_arr == null)
       out += cur_line.data.substring(dist, dict_len);
     else {
-      for (var i = 0; i < dict_len; i++)
-        out_arr[out++] = cur_line.data[dist + i];
+      for (var i = 0; i < dict_len; i++) {
+        out_arr[out] = cur_line.data[dist + i];
+        out++;
+      }
     }
   } else {
     var dict_len = 0;
@@ -906,7 +895,7 @@ function decodeRepeat(input, len, out_arr, out, bit_no, prev_lines) {
       out += out.substr(out.length - dist, dict_len);
     else {
       for (var i = 0; i < dict_len; i++) {
-        out_arr[out] = out_arr[out - dist + i];
+        out_arr[out] = out_arr[out - dist];
         out++;
       }
     }
