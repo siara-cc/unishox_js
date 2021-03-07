@@ -13,12 +13,15 @@ var buf1 = new Uint8Array(512);
 function run_test(str) {
 
   var utf8arr = new util.TextEncoder("utf-8").encode(str);
+  var buf_len = usx2.unishox2_compress(str, str.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  var out_str = usx2.unishox2_decompress(buf, buf_len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var buf_len = usx2.unishox2_compress(utf8arr, utf8arr.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var out_len = usx2.unishox2_decompress(buf, buf_len, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
-  var out_str = new util.TextDecoder("utf-8").decode(buf1.slice(0, out_len));
+  var out_str1 = new util.TextDecoder("utf-8").decode(buf1.slice(0, out_len));
   var input_len = encodeURI(str).split(/%..|./).length - 1;
   test(str + " (" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "%)", () => {
     expect(out_str).toBe(str);
+    expect(out_str1).toBe(str);
   });
  
 }

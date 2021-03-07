@@ -390,6 +390,20 @@ function append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens) {
   return ol;
 }
 
+function compare_arr(arr1, arr2, is_str) {
+  if (is_str)
+    return arr1 === arr2;
+  else {
+    if (arr1.length !== arr2.length)
+      return false;
+    for (var i = 0; i < arr2.length; i++) {
+      if (arr1[i] !== arr2[i])
+        return false;
+    }
+  }
+  return true;
+}
+
 const usx_spl_code = new Uint8Array([0, 0xE0, 0xC0, 0xF0]);
 const usx_spl_code_len = new Uint8Array([1, 4, 3, 4]);
 
@@ -524,7 +538,8 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
               }
             } else
             if (c_t === 'r' || c_t === 't' || c_t === 'o') {
-              if (c_in < 48 || c_in > (c_t === 'r' ? '7' : (c_t === 't' ? '3' : '1')))
+              // if c_in does not fall into the number range
+              if (c_in < 48 || c_in > (c_t === 'r' ? 55 : (c_t === 't' ? 51 : 49)))
                 break;
             } else
             if (c_t.charCodeAt(0) !== c_in)
@@ -562,7 +577,8 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
       for (i = 0; i < 6; i++) {
         var seq_len = usx_freq_seq[i].length;
         if (len - seq_len > 0 && l < len - seq_len) {
-          if (usx_freq_seq[i].slice(0, seq_len) == input.slice(l, l + seq_len) && usx_hcode_lens[usx_freq_codes[i] >> 5]) {
+          if (usx_hcode_lens[usx_freq_codes[i] >> 5] &&
+              compare_arr(usx_freq_seq[i].slice(0, seq_len), input.slice(l, l + seq_len), is_str)) {
             [ol, state] = append_code(out, ol, usx_freq_codes[i], state, usx_hcodes, usx_hcode_lens);
             l += seq_len;
             l--;

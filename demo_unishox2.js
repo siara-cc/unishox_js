@@ -177,13 +177,11 @@ if (argv >= 4 && args[1] == "-c") {
      bytes_read = fs.readSync(fp, cbuf, 0, cbuf.length, null);
      if (bytes_read > 0) {
         clen = unishox2_compress_preset_lines(cbuf, bytes_read, dbuf, preset, null);
-        console.log(bytes_read);
-        console.log(clen);
         ctot += clen;
         tot_len += bytes_read;
         if (clen > 0) {
            fs.writeSync(wfp, new Uint8Array([clen >> 8]), 0, 1, null);
-           fs.writeSync(wfp, new Uint8Array([clen && 0xFF]), 0, 1, null);
+           fs.writeSync(wfp, new Uint8Array([clen & 0xFF]), 0, 1, null);
            if (clen != fs.writeSync(wfp, dbuf, 0, clen, null)) {
               return 1;
            }
@@ -215,6 +213,8 @@ if (argv >= 4 && args[1] == "-d") {
    do {
      //memset(dbuf, 0, sizeof(dbuf));
      bytes_read = fs.readSync(fp, dbuf, 0, 2, null);
+     if (bytes_read == 0)
+       break;
      var len_to_read = dbuf[0] << 8;
      len_to_read += dbuf[1];
      bytes_read = fs.readSync(fp, dbuf, 0, len_to_read, null);

@@ -4,3 +4,5 @@
 test*.js.dsx
 .npmrc
 node_modules
+coverage
+
