@@ -311,14 +311,15 @@ function matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hc
   var j = 0;
   do {
     var i, k;
-    var line_len = prev_lines.data.length;
+    var prev_line = prev_lines[prev_lines.length - line_ctr - 1];
+    var line_len = prev_line.length;
     var limit = (line_ctr == 0 ? l : line_len);
     for (; j < limit; j++) {
       for (i = l, k = j; k < line_len && i < len; k++, i++) {
-        if (prev_lines.data[k] != input[i])
+        if (prev_line[k] !== input[i])
           break;
       }
-      while ((prev_lines.data[k] >> 6) == 2)
+      while ((prev_line[k] >> 6) == 2)
         k--; // Skip partial UTF-8 matches
       if ((k - j) >= NICE_LEN) {
         if (last_len > 0) {
@@ -348,9 +349,7 @@ function matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hc
         j += last_len;
       }
     }
-    line_ctr++;
-    prev_lines = prev_lines.previous;
-  } while (prev_lines != null && prev_lines.data != null);
+  } while (++line_ctr < prev_lines.length);
   if (last_len > 0) {
     l += last_len;
     l--;
@@ -407,7 +406,7 @@ function compare_arr(arr1, arr2, is_str) {
 const usx_spl_code = new Uint8Array([0, 0xE0, 0xC0, 0xF0]);
 const usx_spl_code_len = new Uint8Array([1, 4, 3, 4]);
 
-function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, prev_lines) {
+function unishox2_compress_array(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, prev_lines) {
 
   var state;
 
@@ -427,7 +426,7 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
   for (l=0; l<len; l++) {
 
     if (usx_hcode_lens[USX_DICT] > 0 && l < (len - NICE_LEN + 1)) {
-      if (prev_lines) {
+      if (prev_lines !== undefined && prev_lines != null) {
         [l, ol] = matchLine(input, len, l, out, ol, prev_lines, state, usx_hcodes, usx_hcode_lens);
         if (l > 0) {
           continue;
@@ -732,11 +731,11 @@ function unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, us
 }
 
 function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates) {
-  return unishox2_compress_lines(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, null);
+  return unishox2_compress_array(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, null);
 }
 
 function unishox2_compress_simple(input, len, out) {
-  return unishox2_compress_lines(input, len, out, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES, null);
+  return unishox2_compress_array(input, len, out, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES, null);
 }
 
 function readBit(input, bit_no) {
@@ -869,51 +868,63 @@ function readUnicode(input, bit_no, len) {
   return [0, bit_no];
 }
 
-function decodeRepeat(input, len, out_arr, out, bit_no, prev_lines) {
-  if (prev_lines != null) {
-    var dict_len = 0;
-    [dict_len, bit_no] = readCount(input, bit_no, len)
-    if (dict_len < 0)
-      return [bit_no, out];
-    dict_len += NICE_LEN;
-    var dist = 0;
-    [dist, bit_no] = readCount(input, bit_no, len);
-    if (dist < 0)
-      return [bit_no, out];
-    var ctx = 0;
-    [ctx, bit_no] = readCount(input, bit_no, len);
-    if (ctx < 0)
-      return [bit_no, out];
-    var cur_line = prev_lines;
-    while (ctx--)
-      cur_line = cur_line.previous;
-    if (out_arr == null)
-      out += cur_line.data.substring(dist, dict_len);
-    else {
-      for (var i = 0; i < dict_len; i++) {
-        out_arr[out] = cur_line.data[dist + i];
-        out++;
-      }
+function decodeRepeatArray(input, len, out_arr, out, bit_no, prev_lines_arr, prev_lines_idx,
+                            usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates) {
+  var dict_len = 0;
+  [dict_len, bit_no] = readCount(input, bit_no, len)
+  if (dict_len < 0)
+    return [bit_no, out];
+  dict_len += NICE_LEN;
+  var dist = 0;
+  [dist, bit_no] = readCount(input, bit_no, len);
+  if (dist < 0)
+    return [bit_no, out];
+  var ctx = 0;
+  [ctx, bit_no] = readCount(input, bit_no, len);
+  if (ctx < 0)
+    return [bit_no, out];
+  var line;
+  if (ctx == 0)
+    line = (out_arr == null ? out : out_arr);
+  else {
+    if (out_arr == null) {
+      line = unishox2_decompress(prev_lines_arr, prev_lines_idx - ctx, null,
+              usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
+    } else {
+      line = new Uint8Array(prev_lines_arr[prev_lines_idx - ctx].length * 2);
+      unishox2_decompress(prev_lines_arr, prev_lines_idx - ctx, line,
+        usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
     }
+  }
+  if (out_arr == null) {
+    out += line.slice(dist, dict_len);
   } else {
-    var dict_len = 0;
-    [dict_len, bit_no] = readCount(input, bit_no, len);
-    if (dict_len < 0)
-      return [bit_no, out];
-    dict_len += NICE_LEN;
-    var dist = 0;
-    [dist, bit_no] = readCount(input, bit_no, len);
-    dist += (NICE_LEN - 1);
-    if (dist < 0)
-      return [bit_no, out];
-    //console.log("Decode len: %d, dist: %d\n", dict_len - NICE_LEN, dist - NICE_LEN + 1);
-    if (out_arr == null)
-      out += out.substr(out.length - dist, dict_len);
-    else {
-      for (var i = 0; i < dict_len; i++) {
-        out_arr[out] = out_arr[out - dist];
-        out++;
-      }
+    for (var i = 0; i < dict_len; i++) {
+      out_arr[out] = line[dist + i];
+      out++;
+    }
+  }
+  return [bit_no, out];
+}
+
+function decodeRepeat(input, len, out_arr, out, bit_no) {
+  var dict_len = 0;
+  [dict_len, bit_no] = readCount(input, bit_no, len);
+  if (dict_len < 0)
+    return [bit_no, out];
+  dict_len += NICE_LEN;
+  var dist = 0;
+  [dist, bit_no] = readCount(input, bit_no, len);
+  dist += (NICE_LEN - 1);
+  if (dist < 0)
+    return [bit_no, out];
+  //console.log("Decode len: %d, dist: %d\n", dict_len - NICE_LEN, dist - NICE_LEN + 1);
+  if (out_arr == null)
+    out += out.substr(out.length - dist, dict_len);
+  else {
+    for (var i = 0; i < dict_len; i++) {
+      out_arr[out] = out_arr[out - dist];
+      out++;
     }
   }
   return [bit_no, out];
@@ -963,19 +974,29 @@ function appendString(out_arr, out, str) {
   return out;
 }
 
-function unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, prev_lines) {
+function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates) {
 
   var dstate;
   var bit_no;
   var h, v;
   var is_all_upper;
+  var prev_lines_arr = null;
+  var prev_lines_idx;
 
   init_coder();
   bit_no = 1; // ignore the magic bit
   dstate = h = USX_ALPHA;
   is_all_upper = 0;
-
   var prev_uni = 0;
+
+  // if decompressing an element in an array, pass the array as input
+  // and index of the array to be decompressed in len
+  if (input instanceof Array) {
+    prev_lines_arr = input;
+    prev_lines_idx = len;
+    input = prev_lines_arr[prev_lines_idx];
+    len = input.length;
+  }
 
   len <<= 3;
   var out = (out_arr == null ? "" : 0); // if out_arr is present, out holds current position of out_arr
@@ -1005,7 +1026,12 @@ function unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_le
               continue;
             }
             if (h == USX_DICT) {
-              [bit_no, out] = decodeRepeat(input, len, out_arr, out, bit_no, prev_lines);
+              if (prev_lines_arr == null)
+                [bit_no, out] = decodeRepeat(input, len, out_arr, out, bit_no);
+              else {
+                [bit_no, out] = decodeRepeatArray(input, len, out_arr, out, bit_no, 
+                  prev_lines_arr, prev_lines_idx, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
+              }
               h = dstate;
               continue;
             }
@@ -1080,7 +1106,12 @@ function unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_le
          }
       } else
       if (h == USX_DICT) {
-        [bit_no, out] = decodeRepeat(input, len, out_arr, out, bit_no, prev_lines);
+        if (prev_lines_arr == null)
+          [bit_no, out] = decodeRepeat(input, len, out_arr, out, bit_no);
+        else {
+          [bit_no, out] = decodeRepeatArray(input, len, out_arr, out, bit_no, 
+            prev_lines_arr, prev_lines_idx, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
+        }
         continue;
       } else
       if (h == USX_DELTA) {
@@ -1199,13 +1230,9 @@ function unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_le
 
 }
 
-function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates) {
-  return unishox2_decompress_lines(input, len, out_arr, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates, null);
-}
-
 function unishox2_decompress_simple(input, len) {
   return unishox2_decompress(input, len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
 }
 
-module.exports = {unishox2_compress, unishox2_compress_lines, unishox2_compress_simple,
-                  unishox2_decompress, unishox2_decompress_lines, unishox2_decompress_simple};
+module.exports = {unishox2_compress, unishox2_compress_array, unishox2_compress_simple,
+                  unishox2_decompress, unishox2_decompress_simple};
