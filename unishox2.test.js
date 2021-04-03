@@ -1,14 +1,19 @@
 const { run } = require('jest');
 const usx2 = require('./unishox2');
-var util= require('util');
+var util = require('util');
 
-const USX_HCODES_DFLT = [0x00, 0x40, 0x80, 0xC0, 0xE0];
-const USX_HCODE_LENS_DFLT = [2, 2, 2, 3, 3];
-const USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
-const USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
+var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0xE0, 0x80, 0xC0]);
+var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 3, 2, 3]);
+var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
+var USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
 
 var buf = new Uint8Array(512);
 var buf1 = new Uint8Array(512);
+
+var input_arr = [];
+var compressed_arr = [];
+var tot_input_len = 0;
+var tot_comp_len = 0;
 
 function run_test(str) {
 
@@ -23,14 +28,19 @@ function run_test(str) {
     expect(out_str).toBe(str);
     expect(out_str1).toBe(str);
   });
- 
+  input_arr[input_arr.length] = str;
+  out_len = usx2.unishox2_compress(input_arr, input_arr.length - 1, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  compressed_arr[compressed_arr.length] = buf1.slice(0, out_len);
+  tot_input_len += utf8arr.length;
+  tot_comp_len += out_len;
+  
 }
 
 run_test("Hello");
 run_test("Hello World");
 run_test("The quick brown fox jumped over the lazy dog");
 run_test("HELLO WORLD");
-//run_test("HELLO WORLD HELLO WORLD");
+run_test("HELLO WORLD HELLO WORLD");
 
 // Numbers
 run_test("Hello1");
@@ -57,20 +67,22 @@ run_test("-----------------Hello World1111111111112222222abcdef12345abcde1234_//
 
 // Nibbles
 run_test("fa01b51e-7ecc-4e3e-be7b-918a4c2c891c");
+run_test("Fa01b51e-7ecc-4e3e-be7b-918a4c2c891c");
 run_test("fa01b51e-7ecc-4e3e-be7b-9182c891c");
 run_test("760FBCA3-272E-4F1A-BF88-8472DF6BD994");
+run_test("760FBCA3-272E-4F1A-BF88-8472DF6Bd994");
+run_test("760FBCA3-272E-4F1A-BF88-8472DF6Bg994");
 run_test("FBCA3-272E-4F1A-BF88-8472DF6BD994");
 run_test("Hello 1 5347a688-d8bf-445d-86d1-b470f95b007fHello World");
+run_test("01234567890123");
 
 // Templates
 run_test("2020-12-31");
 run_test("1934-02");
 run_test("2020-12-31T12:23:59.234Z");
-
 run_test("1899-05-12T23:59:59.23434");
 run_test("1899-05-12T23:59:59");
 run_test("2020-12-31T12:23:59.234Zfa01b51e-7ecc-4e3e-be7b-918a4c2c891c");
-
 run_test("顔に(993) 345-3495あり");
 run_test("HELLO(993) 345-3495WORLD");
 run_test("顔に1899-05-12T23:59:59あり");
@@ -135,11 +147,13 @@ run_test("水能载舟，亦能覆舟 - Not only can water float a boat, it can 
 run_test("朝被蛇咬，十年怕井绳 - Once bitten by a snake for a snap dreads a rope for a decade.");
 run_test("一分耕耘，一分收获 - If one does not plow, there will be no harvest.");
 run_test("有钱能使鬼推磨 - If you have money you can make the devil push your grind stone.");
-run_test("一失足成千古恨，再回头已百年身 - A single slip may cause lasting sorrow.");
+run_test("一失足成千古恨，再回头\n已百年身 - A single slip may cause lasting sorrow.");
 run_test("自助者天助 - Those who help themselves, God will help.");
 run_test("早起的鸟儿有虫吃 - Early bird gets the worm.");
+run_test("This is first line,\r\nThis is second line");
 run_test("{\"menu\": {\n  \"id\": \"file\",\n  \"value\": \"File\",\n  \"popup\": {\n    \"menuitem\": [\n      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\n      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\n      {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}\n    ]\n  }\n}}");
-run_test("{\"menu\": {\r\n  \"id\": \"file\",\r\n  \"value\": \"File\",\r\n  \"popup\": {\r\n    \"menuitem\": [\r\n      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\r\n      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\r\n      {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}\r\n    ]\r\n  }\r\n}}");
+run_test("{\"menu\": {\r\n  \"id\": \"file\",\r\n  \"value\": \"File\",\r\n  \"popup\": {\r\n    \"menuitem\": [\r\n      {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},\r\n      {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},\r\n      {\"value\":\"Close\", \"onclick\": \"CloseDoc()\"}\r\n    ]\r\n  }\r\n}}");
+run_test("https://siara.cc");
 
 run_test("符号\"δ\"表");
 run_test("学者地”[3]。学者");
@@ -248,4 +262,31 @@ run_test("Kecantikan bukan di muka. Kecantikan adalah cahaya di dalam hati.");
 // Emoji
 run_test("🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣");
 run_test("😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢");
-run_test("Hello \x80\x83\xAE\xBC\xBD\xBE");
+
+test("Testing binary compression", () => {
+  var input_bin_arr = new Uint8Array([245, 124, 235, 190, 42, 12, 3, 0, 5, 23]);
+  var clen = usx2.unishox2_compress_simple(input_bin_arr, input_bin_arr.length, buf1);
+  var dlen = usx2.unishox2_decompress(buf1, clen, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  expect(input_bin_arr).toStrictEqual(buf.slice(0, dlen));
+});
+
+test("Testing array compression (String array) (" + tot_comp_len + "/" + tot_input_len + " = " + (Math.round((tot_input_len-tot_comp_len)*1000/tot_input_len) / 10) + "%)", () => {
+  for (var i = 0; i < compressed_arr.length; i++) {
+    str = usx2.unishox2_decompress(compressed_arr, i, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+    input_len = input_arr[i].length;
+    buf_len = compressed_arr[i].length;
+    expect(str).toBe(input_arr[i]);
+  }
+});
+
+test("Testing array compression (utf-8 uint8 array) (" + tot_comp_len + "/" + tot_input_len + " = " + (Math.round((tot_input_len-tot_comp_len)*1000/tot_input_len) / 10) + "%)", () => {
+  for (var i = 0; i < compressed_arr.length; i++) {
+    var utf8arr = new util.TextEncoder("utf-8").encode(input_arr[i]);
+    input_arr[i] = utf8arr;
+    out_len = usx2.unishox2_compress(input_arr, i, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+    compressed_arr[i] = buf1.slice(0, out_len);
+    dlen = usx2.unishox2_decompress(compressed_arr, i, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+    var decoder = new util.TextDecoder("utf-8");
+    expect(decoder.decode(buf.slice(0, dlen))).toStrictEqual(decoder.decode(input_arr[i]));
+  }
+});

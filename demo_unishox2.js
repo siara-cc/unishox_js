@@ -64,8 +64,8 @@ const USX_PSETS = [
 const usx = require('./unishox2');
 var fs = require("fs");
 
-function unishox2_compress_preset(input, len, out, pset, prev_lines_arr) {
-  return usx.unishox2_compress_array(input, len, out, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES, prev_lines_arr);
+function unishox2_compress_preset(input, len, out, pset) {
+  return usx.unishox2_compress(input, len, out, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
 }
 
 function unishox2_decompress_preset(input, len, out, pset) {
@@ -196,8 +196,9 @@ if (argv >= 4 && (args[1] == "-g" || args[1] == "-G")) {
       // compress the line and look in previous lines
       // add to linked list
       if (len > 0) {
-        prev_lines[line_ctr] = cbuf.slice(0, len);
-        clen = unishox2_compress_preset(cbuf, len, dbuf, preset, prev_lines);
+        //prev_lines[line_ctr] = cbuf.slice(0, len);
+        prev_lines[line_ctr] = new TextDecoder("UTF-8").decode(cbuf.slice(0, len));
+        clen = unishox2_compress_preset(prev_lines, line_ctr, dbuf, preset);
         if (clen > 0) {
             perc = (len-clen);
             perc /= len;
@@ -244,6 +245,32 @@ if (argv == 2 || (argv == 3 && parseInt(args[2], 10) > 0)) {
   console.log("");
   console.log("Compression ratio:(" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "% savings)");
   console.log("");
+} else
+if (argv >= 4 && (args[1] == "-a" || args[1] == "-A")) {
+   var preset = 0;
+   if (argv > 4)
+     preset = parseInt(args[4], 10);
+   if (args[1] == "-a")
+     preset = 9; // = USX_PSET_NO_DICT;
+   var prev_lines_arr = require(args[2]);
+   console.log(unishox2_decompress_preset(prev_lines_arr, parseInt(args[3], 10), null, preset));
+} else
+if (argv == 2 || (argv == 3 && parseInt(args[2], 10) > 0)) {
+  var pset = 0;
+  if (argv > 2)
+    pset = parseInt(args[2], 10);
+  var buf_len = usx.unishox2_compress(args[1], args[1].length, dbuf, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
+  var out_str = usx.unishox2_decompress(dbuf, buf_len, null, USX_PSETS[pset][0], USX_PSETS[pset][1], USX_PSETS[pset][2], USX_TEMPLATES);
+  var input_len = encodeURI(args[1]).split(/%..|./).length - 1;
+  console.log("");
+  console.log("Input: " + args[1]);
+  console.log("");
+  console.log("Compressed (Uint8Array) : " + dbuf.slice(0, buf_len));
+  console.log("");
+  console.log("Decompressed: " + out_str);
+  console.log("");
+  console.log("Compression ratio:(" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "% savings)");
+  console.log("");
 } else {
    console.log("Unishox (byte format version: %s)", UNISHOX_VERSION);
    console.log("----------------------------------");
@@ -257,6 +284,8 @@ if (argv == 2 || (argv == 3 && parseInt(args[2], 10) > 0)) {
    console.log("         -d    decompress");
    console.log("         -g    generate Uint8Array file");
    console.log("         -G    generate Uint8Array file using additional compression (slower)");
+   console.log("         -a    Decompress specific line of a file generated with -g");
+   console.log("         -A    Decompress specific line of a file generated with -G");
    console.log("");
    console.log("         [preset_number]:");
    console.log("         0    Optimum - favors all including JSON, XML, URL and HTML (default)");
