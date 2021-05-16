@@ -100,6 +100,22 @@ Depending on the input string, you can press more juice out of the compressor by
 
 Please refer to `unishox_compress_lines` and `unishox_decompress_lines` functions in the library to make use of these. However in most cases, the default Simple API provides optimimum compression.
 
+# Integrating with Firebase Firestore
+
+Unishox can be used to store more data than the 1GB free limit in Firestore database by storing text content as a Blob.  For example, 
+
+```Javascript
+var usx = require("./unishox2.js")
+var my_str = "The quick brown fox jumped over the lazy dog";
+var out_buf = new Uint8Array(100); // A buffer with arbitrary length
+var out_len = usx.unishox2_compress_simple(my_str, my_str.length, out_buf);
+firebase.firestore().collection("/my-collection").add({
+  myCompressedBlob: firebase.firestore.Blob.fromUint8Array(out_buf.slice(0, out_len))
+});
+```
+
+Since the size of compressed content will be smaller than the input text, more than 1GB data can be compressed and stored into Firestore.  The compression ratio will depend on the type of text that is being compressed.
+
 # Character Set
 
 Unishox supports the entire Unicode character set.  As of now it supports UTF-8 as input and output encoding.
