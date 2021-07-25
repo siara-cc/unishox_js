@@ -12,11 +12,17 @@ Note: The present byte-code version is 2 and it replaces Unishox 1.  Unishox 1 i
 - Storing compressed text in database
 - Bandwidth and storage cost reduction for Cloud technologies
 
-![Promo Picture](Banner1.png?raw=true)
+![Promo Picture](demo/Banner1.png?raw=true)
 
 # How it works
 
-Unishox is an hybrid encoder which uses entropy, dictionary and delta coding techniques.  It works by assigning fixed prefix-free codes for each letter in the printable ANSI character set.  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used.  Please read [this article](https://github.com/siara-cc/Unishox/blob/master/Unishox_Article_2.pdf?raw=true) to find out more.
+Unishox is an hybrid encoder (entropy, dictionary and delta coding).  It works by assigning fixed prefix-free codes for each letter in the above Character Set (entropy coding).  It also encodes repeating letter sets separately (dictionary coding).  For Unicode characters, delta coding is used.
+
+The model used for arriving at the prefix-free code is shown below:
+
+![Promo video](https://github.com/siara-cc/Unishox/blob/master/demo/model.png?raw=true)
+
+The complete specification can be found in this article: [Unishox 2 - Guaranteed Configurable Compression for Short Strings using Entropy, Dictionary and Delta encoding techniques](https://github.com/siara-cc/Unishox/blob/master/Unishox_Article_2.pdf?raw=true).
 
 # Getting started
 
@@ -43,7 +49,7 @@ node demo_unishox2.js "The quick brown fox jumped over the lazy dog"
 ```
 
 and the output would be:
-![Output 1](Output1.png?raw=true)
+![Output 1](demo/Output1.png?raw=true)
 
 ## Using it in your application
 
@@ -126,7 +132,14 @@ Unishox supports the entire Unicode character set.  As of now it supports UTF-8 
 - [Sqlite3 User Defined Function as loadable extension](https://github.com/siara-cc/Unishox_Sqlite_UDF)
 - [Sqlite3 Library for ESP32](https://github.com/siara-cc/esp32_arduino_sqlite3_lib)
 - [Sqlite3 Library for ESP8266](https://github.com/siara-cc/esp_arduino_sqlite3_lib)
-- [Port of this library to Python and C++ by Stephan Hadinger for Tasmota](https://github.com/arendst/Tasmota/tree/development/lib/Unishox-1.0-shadinger)
+- [Port of Unishox 1 to Python and C++ by Stephan Hadinger for Tasmota](https://github.com/arendst/Tasmota/tree/development/tools/unishox)
+- [Python bindings for Unishox2](https://github.com/tweedge/unishox2-py3)
+
+# Credits
+
+- Thanks to [Jonathan Greenblatt](https://github.com/leafgarden) for his [port of Unishox2 that works on Particle Photon](https://github.com/siara-cc/Unishox/tree/master/Arduino)
+- Thanks to [Chris Partridge](https://github.com/tweedge) for his [port of Unishox2 to CPython](https://github.com/tweedge/unishox2-py3) and his [comprehensive tests](https://github.com/tweedge/unishox2-py3#integration-tests) using [Hypothesis](https://hypothesis.readthedocs.io/en/latest) and [extensive performance tests](https://github.com/tweedge/unishox2-py3#performance).
+- Thanks to [Stephan Hadinger](https://github.com/s-hadinger) for his [port of Unishox1 to Python for Tasmota](https://github.com/arendst/Tasmota/tree/development/tools/unishox)
 
 # Issues
 
