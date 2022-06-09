@@ -11,7 +11,7 @@
     "url": "git+https://github.com/siara-cc/unishox_js.git"
   },
   "publishConfig": {
-    "registry":"https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com"
   },
   "keywords": [
     "compression",

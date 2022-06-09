@@ -19,14 +19,30 @@ function run_test(str) {
 
   var utf8arr = new util.TextEncoder("utf-8").encode(str);
   var buf_len = usx2.unishox2_compress(str, str.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  var buf_cmp1 = buf.subarray(0, buf_len);
   var out_str = usx2.unishox2_decompress(buf, buf_len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var buf_len = usx2.unishox2_compress(utf8arr, utf8arr.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
+  var buf_cmp2 = buf.subarray(0, buf_len);
   var out_len = usx2.unishox2_decompress(buf, buf_len, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var out_str1 = new util.TextDecoder("utf-8").decode(buf1.slice(0, out_len));
   var input_len = encodeURI(str).split(/%..|./).length - 1;
+  var out_usx2c = null;
+  /*if (fs.existsSync("usx2c_caller.exe")) {
+    try {
+      const output = execFileSync("./usx2c_caller.exe", [str], { encoding: 'utf-8' });
+      if (output != null)
+        out_usx2c = output;
+    } catch (e) {
+      console.log('Exception: ', e);
+    }
+  }*/
   test(str + " (" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "%)", () => {
     expect(out_str).toBe(str);
     expect(out_str1).toBe(str);
+    /*if (out_usx2c != null) {
+      console.log("Output:",out_usx2c);
+      expect(buf_cmp1.toString()).toBe(buf_cmp2.toString());
+    }*/
   });
   input_arr[input_arr.length] = str;
   out_len = usx2.unishox2_compress(input_arr, input_arr.length - 1, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
@@ -35,7 +51,26 @@ function run_test(str) {
   tot_comp_len += out_len;
   
 }
-
+/*
+const fs = require("fs");
+const execSync = require('child_process').execSync;
+const { execFile, execFileSync } = require('child_process');
+if (!fs.existsSync("unishox2.c")) {
+  const output = execSync("curl -H 'Cache-Control: no-cache, no-store' https://raw.githubusercontent.com/siara-cc/Unishox/master/unishox2.c > unishox2.c", { encoding: 'utf-8' });
+  console.log('Downloading unishox2.c:\n', output);
+}
+if (!fs.existsSync("unishox2.h")) {
+  const output = execSync("curl -H 'Cache-Control: no-cache, no-store' https://raw.githubusercontent.com/siara-cc/Unishox/master/unishox2.h > unishox2.h", { encoding: 'utf-8' });
+  console.log('Downloading unishox2.h:\n', output);
+}
+if (!fs.existsSync("usx2c_caller.exe")) {
+  try {
+    execSync("cc -o usx2c_caller.exe unishox2.c usx2c_caller.c", { encoding: 'utf-8' });
+  } catch (e) {
+    console.log('Exception: ', e);
+  }
+}
+*/
 run_test("Hello");
 run_test("Hello World");
 run_test("The quick brown fox jumped over the lazy dog");

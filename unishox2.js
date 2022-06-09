@@ -67,8 +67,17 @@ const UNI_STATE_SW_CODE_LEN = 2;
 
 const SW_CODE = 0;
 const SW_CODE_LEN = 2;
+/// Terminator bit sequence for Preset 1. Length varies depending on state as per following consts
+const TERM_BYTE_PRESET_1 = 0;
+/// Length of Terminator bit sequence when state is lower
+const TERM_BYTE_PRESET_1_LEN_LOWER = 6;
+/// Length of Terminator bit sequence when state is upper
+const TERM_BYTE_PRESET_1_LEN_UPPER = 4;
 
 const USX_OFFSET_94 = 33;
+
+/// We almost never need the full terminator
+const need_full_term_codes = 0;
 
 // From: https://stackoverflow.com/a/24466476/5072621
 // Note that size is the number of array elements to set,
@@ -98,11 +107,12 @@ function init_coder() {
 }
 
 var usx_mask = new Uint8Array([0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF]);
-function append_bits(out, ol, code, clen) {
+function append_bits(out, olen, ol, code, clen) {
 
   var cur_bit;
   var blen;
   var a_byte;
+  var oidx;
 
   //console.log(util.format("%d,%x,%d,%d\n", ol, code, clen, state));
 
@@ -113,6 +123,9 @@ function append_bits(out, ol, code, clen) {
      a_byte >>= cur_bit;
      if (blen + cur_bit > 8)
         blen = (8 - cur_bit);
+     oidx = ol / 8;
+     if (oidx < 0 || olen <= oidx)
+        return -1;
      if (cur_bit == 0)
         out[ol >> 3] = a_byte;
      else
@@ -124,16 +137,16 @@ function append_bits(out, ol, code, clen) {
    return ol;
 }
 
-function append_switch_code(out, ol, state) {
+function append_switch_code(out, olen, ol, state) {
   if (state == USX_DELTA) {
-    ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-    ol = append_bits(out, ol, UNI_STATE_SW_CODE, UNI_STATE_SW_CODE_LEN);
+    ol = append_bits(out, olen, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
+    ol = append_bits(out, olen, ol, UNI_STATE_SW_CODE, UNI_STATE_SW_CODE_LEN);
   } else
-    ol = append_bits(out, ol, SW_CODE, SW_CODE_LEN);
+    ol = append_bits(out, olen, ol, SW_CODE, SW_CODE_LEN);
   return ol;
 }
 
-function append_code(out, ol, code, state, usx_hcodes, usx_hcode_lens) {
+function append_code(out, olen, ol, code, state, usx_hcodes, usx_hcode_lens) {
   var hcode = code >> 5;
   var vcode = code & 0x1F;
   if (usx_hcode_lens[hcode] == 0 && hcode != USX_ALPHA)
@@ -141,40 +154,40 @@ function append_code(out, ol, code, state, usx_hcodes, usx_hcode_lens) {
   switch (hcode) {
     case USX_ALPHA:
       if (state != USX_ALPHA) {
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
         state = USX_ALPHA;
       }
       break;
     case USX_SYM:
-      ol = append_switch_code(out, ol, state);
-      ol = append_bits(out, ol, usx_hcodes[USX_SYM], usx_hcode_lens[USX_SYM]);
+      ol = append_switch_code(out, olen, ol, state);
+      ol = append_bits(out, olen, ol, usx_hcodes[USX_SYM], usx_hcode_lens[USX_SYM]);
       break;
     case USX_NUM:
       if (state != USX_NUM) {
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
         if (usx_sets[hcode].charCodeAt(vcode) >= 48 && usx_sets[hcode].charCodeAt(vcode) <= 57)
           state = USX_NUM;
       }
   }
-  return [append_bits(out, ol, usx_vcodes[vcode], usx_vcode_lens[vcode]), state];
+  return [append_bits(out, olen, ol, usx_vcodes[vcode], usx_vcode_lens[vcode]), state];
 }
 
 const count_bit_lens = new Uint8Array([2, 4, 7, 11, 16]);
 const count_adder = [4, 20, 148, 2196, 67732];
 // First five bits are code and Last three bits of codes represent length
 const count_codes = new Uint8Array([0x01, 0x82, 0xC3, 0xE4, 0xF4]);
-function encodeCount(out, ol, count) {
+function encodeCount(out, olen, ol, count) {
   for (var i = 0; i < 5; i++) {
     if (count < count_adder[i]) {
-      ol = append_bits(out, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
+      ol = append_bits(out, olen, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
       var count16 = (count - (i > 0 ? count_adder[i - 1] : 0)) << (16 - count_bit_lens[i]);
       if (count_bit_lens[i] > 8) {
-        ol = append_bits(out, ol, count16 >> 8, 8);
-        ol = append_bits(out, ol, count16 & 0xFF, count_bit_lens[i] - 8);
+        ol = append_bits(out, olen, ol, count16 >> 8, 8);
+        ol = append_bits(out, olen, ol, count16 & 0xFF, count_bit_lens[i] - 8);
       } else
-        ol = append_bits(out, ol, count16 >> 8, count_bit_lens[i]);
+        ol = append_bits(out, olen, ol, count16 >> 8, count_bit_lens[i]);
       return ol;
     }
   }
@@ -184,7 +197,7 @@ function encodeCount(out, ol, count) {
 const uni_bit_len = new Uint8Array([6, 12, 14, 16, 21]);
 const uni_adder = [0, 64, 4160, 20544, 86080];
 
-function encodeUnicode(out, ol, code, prev_code) {
+function encodeUnicode(out, olen, ol, code, prev_code) {
   // First five bits are code and Last three bits of codes represent length
   //const byte codes[8] = {0x00, 0x42, 0x83, 0xA3, 0xC3, 0xE4, 0xF5, 0xFD};
   const codes = new Uint8Array([0x01, 0x82, 0xC3, 0xE4, 0xF5, 0xFD]);
@@ -198,24 +211,24 @@ function encodeUnicode(out, ol, code, prev_code) {
   for (var i = 0; i < 5; i++) {
     till += (1 << uni_bit_len[i]);
     if (diff < till) {
-      ol = append_bits(out, ol, (codes[i] & 0xF8), codes[i] & 0x07);
+      ol = append_bits(out, olen, ol, (codes[i] & 0xF8), codes[i] & 0x07);
       //if (diff) {
-        ol = append_bits(out, ol, prev_code > code ? 0x80 : 0, 1);
+        ol = append_bits(out, olen, ol, prev_code > code ? 0x80 : 0, 1);
         var val = diff - uni_adder[i];
         //printf("Val: %d\n", val);
         if (uni_bit_len[i] > 16) {
           val <<= (24 - uni_bit_len[i]);
-          ol = append_bits(out, ol, val >> 16, 8);
-          ol = append_bits(out, ol, (val >> 8) & 0xFF, 8);
-          ol = append_bits(out, ol, val & 0xFF, uni_bit_len[i] - 16);
+          ol = append_bits(out, olen, ol, val >> 16, 8);
+          ol = append_bits(out, olen, ol, (val >> 8) & 0xFF, 8);
+          ol = append_bits(out, olen, ol, val & 0xFF, uni_bit_len[i] - 16);
         } else
         if (uni_bit_len[i] > 8) {
           val <<= (16 - uni_bit_len[i]);
-          ol = append_bits(out, ol, val >> 8, 8);
-          ol = append_bits(out, ol, val & 0xFF, uni_bit_len[i] - 8);
+          ol = append_bits(out, olen, ol, val >> 8, 8);
+          ol = append_bits(out, olen, ol, val & 0xFF, uni_bit_len[i] - 8);
         } else {
           val <<= (8 - uni_bit_len[i]);
-          ol = append_bits(out, ol, val & 0xFF, uni_bit_len[i]);
+          ol = append_bits(out, olen, ol, val & 0xFF, uni_bit_len[i]);
         }
       //}
       //printf("bits:%d\n", ol-orig_ol);
@@ -267,7 +280,7 @@ function readUTF8(input, len, l) {
   return [ret, utf8len];
 }
 
-function matchOccurance(input, len, l, out, ol, state, usx_hcodes, usx_hcode_lens) {
+function matchOccurance(input, len, l, out, olen, ol, state, usx_hcodes, usx_hcode_lens) {
   var j, k;
   var longest_dist = 0;
   var longest_len = 0;
@@ -290,11 +303,11 @@ function matchOccurance(input, len, l, out, ol, state, usx_hcodes, usx_hcode_len
     }
   }
   if (longest_len > 0) {
-    ol = append_switch_code(out, ol, state);
-    ol = append_bits(out, ol, usx_hcodes[USX_DICT], usx_hcode_lens[USX_DICT]);
+    ol = append_switch_code(out, olen, ol, state);
+    ol = append_bits(out, olen, ol, usx_hcodes[USX_DICT], usx_hcode_lens[USX_DICT]);
     //printf("Len:%d / Dist:%d\n", longest_len, longest_dist);
-    ol = encodeCount(out, ol, longest_len);
-    ol = encodeCount(out, ol, longest_dist);
+    ol = encodeCount(out, olen, ol, longest_len);
+    ol = encodeCount(out, olen, ol, longest_dist);
     l += (longest_len + NICE_LEN);
     l--;
     return [l, ol];
@@ -302,7 +315,7 @@ function matchOccurance(input, len, l, out, ol, state, usx_hcodes, usx_hcode_len
   return [-l, ol];
 }
 
-function matchLine(input, len, l, out, ol, prev_lines, prev_lines_idx, state, usx_hcodes, usx_hcode_lens) {
+function matchLine(input, len, l, out, olen, ol, prev_lines, prev_lines_idx, state, usx_hcodes, usx_hcode_lens) {
   var last_ol = ol;
   var last_len = 0;
   var last_dist = 0;
@@ -335,11 +348,11 @@ function matchLine(input, len, l, out, ol, prev_lines, prev_lines_idx, state, us
         last_len = (k - j);
         last_dist = j;
         last_ctx = line_ctr;
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_DICT], usx_hcode_lens[USX_DICT]);
-        ol = encodeCount(out, ol, last_len - NICE_LEN);
-        ol = encodeCount(out, ol, last_dist);
-        ol = encodeCount(out, ol, last_ctx);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_DICT], usx_hcode_lens[USX_DICT]);
+        ol = encodeCount(out, olen, ol, last_len - NICE_LEN);
+        ol = encodeCount(out, olen, ol, last_dist);
+        ol = encodeCount(out, olen, ol, last_ctx);
         /*
         if ((*ol - last_ol) > (last_len * 4)) {
           last_len = 0;
@@ -382,10 +395,32 @@ function getNibbleType(ch) {
   return USX_NIB_NOT;
 }
 
-function append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens) {
-  ol = append_switch_code(out, ol, state);
-  ol = append_bits(out, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
-  ol = append_bits(out, ol, 0, 2);
+function append_nibble_escape(out, olen, ol, state, usx_hcodes, usx_hcode_lens) {
+  ol = append_switch_code(out, olen, ol, state);
+  ol = append_bits(out, olen, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
+  ol = append_bits(out, olen, ol, 0, 2);
+  return ol;
+}
+
+/// Appends the terminator code depending on the state, preset and whether full terminator needs to be encoded to out or not \n
+function append_final_bits(out, olen, ol, state, is_all_upper, usx_hcodes, usx_hcode_lens) {
+  if (usx_hcode_lens[USX_ALPHA]) {
+    if (USX_NUM != state) {
+      // for num state, append TERM_CODE directly
+      // for other state, switch to Num Set first
+      ol = append_switch_code(out, olen, ol, state);
+      ol = append_bits(out, olen, ol, usx_hcodes[USX_NUM], usx_hcode_lens[USX_NUM]);
+    }
+    ol = append_bits(out, olen, ol, usx_vcodes[TERM_CODE & 0x1F], usx_vcode_lens[TERM_CODE & 0x1F]);
+  } else {
+    // preset 1, terminate at 2 or 3 SW_CODE, i.e., 4 or 6 continuous 0 bits
+    // see discussion: https://github.com/siara-cc/Unishox/issues/19#issuecomment-922435580
+    ol = append_bits(out, olen, ol, TERM_BYTE_PRESET_1, is_all_upper ? TERM_BYTE_PRESET_1_LEN_UPPER : TERM_BYTE_PRESET_1_LEN_LOWER);
+  }
+
+  // fill byte with the last bit
+  ol = append_bits(out, olen, ol, (ol == 0 || out[(ol-1)/8] << ((ol-1)&7) >= 0) ? 0 : 0xFF, (8 - ol % 8) & 7);
+
   return ol;
 }
 
@@ -426,6 +461,8 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
     len = input.length;
   }
 
+  var olen = out.length;
+
   var is_str = (typeof(input) == "string");
 
   init_coder();
@@ -433,20 +470,24 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
   prev_uni = 0;
   state = USX_ALPHA;
   is_all_upper = false;
-  ol = append_bits(out, ol, 0x80, 1); // magic bit
+  ol = append_bits(out, olen, ol, 0x80, 1); // magic bit
   for (l=0; l<len; l++) {
 
     if (usx_hcode_lens[USX_DICT] > 0 && l < (len - NICE_LEN + 1)) {
       if (prev_lines_arr !== undefined && prev_lines_arr != null) {
-        [l, ol] = matchLine(input, len, l, out, ol, prev_lines_arr, prev_lines_idx, state, usx_hcodes, usx_hcode_lens);
+        [l, ol] = matchLine(input, len, l, out, olen, ol, prev_lines_arr, prev_lines_idx, state, usx_hcodes, usx_hcode_lens);
         if (l > 0) {
           continue;
+        } else if (l < 0 && ol < 0) {
+          return olen + 1;
         }
         l = -l;
       } else {
-          [l, ol] = matchOccurance(input, len, l, out, ol, state, usx_hcodes, usx_hcode_lens);
+          [l, ol] = matchOccurance(input, len, l, out, olen, ol, state, usx_hcodes, usx_hcode_lens);
           if (l > 0) {
             continue;
+          } else if (l < 0 && ol < 0) {
+            return olen + 1;
           }
           l = -l;
       }
@@ -460,8 +501,8 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
         while (rpt_count < len && input[rpt_count] == c_in)
           rpt_count++;
         rpt_count -= l;
-        [ol, state] = append_code(out, ol, RPT_CODE, state, usx_hcodes, usx_hcode_lens);
-        ol = encodeCount(out, ol, rpt_count - 4);
+        [ol, state] = append_code(out, olen, ol, RPT_CODE, state, usx_hcodes, usx_hcode_lens);
+        ol = encodeCount(out, olen, ol, rpt_count - 4);
         l += rpt_count;
         l--;
         continue;
@@ -476,7 +517,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
         var uid_pos = l;
         for (; uid_pos < l + 36; uid_pos++) {
           var c_uid = (is_str ? input.charCodeAt(uid_pos) : input[uid_pos]);
-          if (c_uid === 45)
+          if (c_uid === 45 && (uid_pos == 8 || uid_pos == 13 || uid_pos == 18 || uid_pos == 23))
             continue;
           var nib_type = getNibbleType(c_uid);
           if (nib_type == USX_NIB_NOT)
@@ -488,13 +529,13 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
           }
         }
         if (uid_pos == l + 36) {
-          ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
-          ol = append_bits(out, ol, (hex_type == USX_NIB_HEX_UPPER ? 0xF0 : 0xC0),
-                  (hex_type == USX_NIB_HEX_UPPER ? 5 : 3));
+          ol = append_nibble_escape(out, olen, ol, state, usx_hcodes, usx_hcode_lens);
+          ol = append_bits(out, olen, ol, (hex_type == USX_NIB_HEX_LOWER ? 0xC0 : 0xF0),
+                  (hex_type == USX_NIB_HEX_LOWER ? 3 : 5));
           for (uid_pos = l; uid_pos < l + 36; uid_pos++) {
             var c_uid = (is_str ? input.charCodeAt(uid_pos) : input[uid_pos]);
             if (c_uid !== 45) // '-'
-              ol = append_bits(out, ol, getBaseCode(c_uid), 4);
+              ol = append_bits(out, olen, ol, getBaseCode(c_uid), 4);
           }
           //printf("GUID:\n");
           l += 35;
@@ -521,12 +562,12 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
       if (hex_len > 10 && hex_type == USX_NIB_NUM)
         hex_type = USX_NIB_HEX_LOWER;
       if ((hex_type == USX_NIB_HEX_LOWER || hex_type == USX_NIB_HEX_UPPER) && hex_len > 3) {
-        ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
-        ol = append_bits(out, ol, (hex_type == USX_NIB_HEX_LOWER ? 0x80 : 0xE0), (hex_type == USX_NIB_HEX_LOWER ? 2 : 4));
-        ol = encodeCount(out, ol, hex_len);
+        ol = append_nibble_escape(out, olen, ol, state, usx_hcodes, usx_hcode_lens);
+        ol = append_bits(out, olen, ol, (hex_type == USX_NIB_HEX_LOWER ? 0x80 : 0xE0), (hex_type == USX_NIB_HEX_LOWER ? 2 : 4));
+        ol = encodeCount(out, olen, ol, hex_len);
         do {
           var c_uid = (is_str ? input.charCodeAt(l) : input[l]);
-          ol = append_bits(out, ol, getBaseCode(c_uid), 4);
+          ol = append_bits(out, olen, ol, getBaseCode(c_uid), 4);
           l++;
         } while (--hex_len > 0);
         l--;
@@ -560,18 +601,18 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
           if ((j / rem) > 0.66) {
             //printf("%s\n", usx_templates[i]);
             rem = rem - j;
-            ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
-            ol = append_bits(out, ol, 0, 1);
-            ol = append_bits(out, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
-            ol = encodeCount(out, ol, rem);
+            ol = append_nibble_escape(out, olen, ol, state, usx_hcodes, usx_hcode_lens);
+            ol = append_bits(out, olen, ol, 0, 1);
+            ol = append_bits(out, olen, ol, (count_codes[i] & 0xF8), count_codes[i] & 0x07);
+            ol = encodeCount(out, olen, ol, rem);
             for (var k = 0; k < j; k++) {
               var c_t = usx_templates[i][k];
               c_in = (is_str ? input.charCodeAt(l + k) : input[l + k]);
               if (c_t === 'f' || c_t === 'F') {
-                ol = append_bits(out, ol, getBaseCode(c_in), 4);
+                ol = append_bits(out, olen, ol, getBaseCode(c_in), 4);
               } else if (c_t === 'r' || c_t === 't' || c_t === 'o') {
                 c_t = (c_t === 'r' ? 3 : (c_t === 't' ? 2 : 1));
-                ol = append_bits(out, ol, (c_in - 48) << (8 - c_t), c_t);
+                ol = append_bits(out, olen, ol, (c_in - 48) << (8 - c_t), c_t);
               }
             }
             l += j;
@@ -591,7 +632,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
         if (len - seq_len > 0 && l < len - seq_len) {
           if (usx_hcode_lens[usx_freq_codes[i] >> 5] &&
               compare_arr(usx_freq_seq[i].slice(0, seq_len), input.slice(l, l + seq_len), is_str)) {
-            [ol, state] = append_code(out, ol, usx_freq_codes[i], state, usx_hcodes, usx_hcode_lens);
+            [ol, state] = append_code(out, olen, ol, usx_freq_codes[i], state, usx_hcodes, usx_hcode_lens);
             l += seq_len;
             l--;
             break;
@@ -609,23 +650,23 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
     else {
       if (is_all_upper) {
         is_all_upper = false;
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
         state = USX_ALPHA;
       }
     }
     if (is_upper && !is_all_upper) {
       if (state == USX_NUM) {
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
         state = USX_ALPHA;
       }
-      ol = append_switch_code(out, ol, state);
-      ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+      ol = append_switch_code(out, olen, ol, state);
+      ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
       if (state == USX_DELTA) {
         state = USX_ALPHA;
-        ol = append_switch_code(out, ol, state);
-        ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+        ol = append_switch_code(out, olen, ol, state);
+        ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
       }
     }
     c_next = 0;
@@ -640,8 +681,8 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
             break;
         }
         if (ll == l-1) {
-          ol = append_switch_code(out, ol, state);
-          ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+          ol = append_switch_code(out, olen, ol, state);
+          ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
           state = USX_ALPHA;
           is_all_upper = true;
         }
@@ -649,8 +690,8 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
       if (state == USX_DELTA) {
         var ch_idx = " .,".indexOf(String.fromCharCode(c_in));
         if (ch_idx != -1) {
-          ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-          ol = append_bits(out, ol, usx_spl_code[ch_idx], usx_spl_code_len[ch_idx]);
+          ol = append_bits(out, olen, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
+          ol = append_bits(out, olen, ol, usx_spl_code[ch_idx], usx_spl_code_len[ch_idx]);
           continue;
         }
       }
@@ -659,30 +700,30 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
         c_in += 32;
       if (c_in === 0) {
         if (state == USX_NUM)
-          ol = append_bits(out, ol, usx_vcodes[NUM_SPC_CODE & 0x1F], usx_vcode_lens[NUM_SPC_CODE & 0x1F]);
+          ol = append_bits(out, olen, ol, usx_vcodes[NUM_SPC_CODE & 0x1F], usx_vcode_lens[NUM_SPC_CODE & 0x1F]);
         else
-          ol = append_bits(out, ol, usx_vcodes[1], usx_vcode_lens[1]);
+          ol = append_bits(out, olen, ol, usx_vcodes[1], usx_vcode_lens[1]);
       } else {
         c_in = c_in - 1;
-        [ol, state] = append_code(out, ol, usx_code_94[c_in], state, usx_hcodes, usx_hcode_lens);
+        [ol, state] = append_code(out, olen, ol, usx_code_94[c_in], state, usx_hcodes, usx_hcode_lens);
       }
     } else
     if (c_in === 13 && c_next === 10) {
-      [ol, state] = append_code(out, ol, CRLF_CODE, state, usx_hcodes, usx_hcode_lens);
+      [ol, state] = append_code(out, olen, ol, CRLF_CODE, state, usx_hcodes, usx_hcode_lens);
       l++;
     } else
     if (c_in === 10) {
       if (state == USX_DELTA) {
-        ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-        ol = append_bits(out, ol, 0xF0, 4);
+        ol = append_bits(out, olen, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
+        ol = append_bits(out, olen, ol, 0xF0, 4);
       } else
-        [ol, state] = append_code(out, ol, LF_CODE, state, usx_hcodes, usx_hcode_lens);
+        [ol, state] = append_code(out, olen, ol, LF_CODE, state, usx_hcodes, usx_hcode_lens);
     } else
     if (c_in === 13) {
-      [ol, state] = append_code(out, ol, CR_CODE, state, usx_hcodes, usx_hcode_lens);
+      [ol, state] = append_code(out, olen, ol, CR_CODE, state, usx_hcodes, usx_hcode_lens);
     } else
     if (c_in === 9) {
-      [ol, state] = append_code(out, ol, TAB_CODE, state, usx_hcodes, usx_hcode_lens);
+      [ol, state] = append_code(out, olen, ol, TAB_CODE, state, usx_hcodes, usx_hcode_lens);
     } else {
       var uni, utf8len;
       [uni, utf8len] = readUTF8(input, len, l);
@@ -692,19 +733,19 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
           [uni2, utf8len] = readUTF8(input, len, l);
           if (uni2 > 0) {
             if (state != USX_ALPHA) {
-              ol = append_switch_code(out, ol, state);
-              ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+              ol = append_switch_code(out, olen, ol, state);
+              ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
             }
-            ol = append_switch_code(out, ol, state);
-            ol = append_bits(out, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
-            ol = append_bits(out, ol, usx_vcodes[1], usx_vcode_lens[1]); // code for space (' ')
+            ol = append_switch_code(out, olen, ol, state);
+            ol = append_bits(out, olen, ol, usx_hcodes[USX_ALPHA], usx_hcode_lens[USX_ALPHA]);
+            ol = append_bits(out, olen, ol, usx_vcodes[1], usx_vcode_lens[1]); // code for space (' ')
             state = USX_DELTA;
           } else {
-            ol = append_switch_code(out, ol, state);
-            ol = append_bits(out, ol, usx_hcodes[USX_DELTA], usx_hcode_lens[USX_DELTA]);
+            ol = append_switch_code(out, olen, ol, state);
+            ol = append_bits(out, olen, ol, usx_hcodes[USX_DELTA], usx_hcode_lens[USX_DELTA]);
           }
         }
-        ol = encodeUnicode(out, ol, uni, prev_uni);
+        ol = encodeUnicode(out, olen, ol, uni, prev_uni);
         //console.log("%d:%d:%d,", l, utf8len, uni);
         prev_uni = uni;
         l--;
@@ -722,24 +763,26 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
           bin_count++;
         }
         //printf("Bin:%d:%d:%x:%d\n", l, (unsigned char) c_in, (unsigned char) c_in, bin_count);
-        ol = append_nibble_escape(out, ol, state, usx_hcodes, usx_hcode_lens);
-        ol = append_bits(out, ol, 0xF8, 5);
-        ol = encodeCount(out, ol, bin_count);
+        ol = append_nibble_escape(out, olen, ol, state, usx_hcodes, usx_hcode_lens);
+        ol = append_bits(out, olen, ol, 0xF8, 5);
+        ol = encodeCount(out, olen, ol, bin_count);
         do {
-          ol = append_bits(out, ol, input[l++], 8);
+          ol = append_bits(out, olen, ol, input[l++], 8);
         } while (--bin_count > 0);
         l--;
       }
     }
   }
-  var ret = Math.floor(ol/8) + ((ol%8) > 0 ?1:0);
-  if ((ol % 8) > 0) {
-    if (state == USX_DELTA)
-      ol = append_bits(out, ol, UNI_STATE_SPL_CODE, UNI_STATE_SPL_CODE_LEN);
-    [ol, state] = append_code(out, ol, TERM_CODE, state, usx_hcodes, usx_hcode_lens);
+
+  if (need_full_term_codes) {
+    var orig_ol = ol;
+    ol = append_final_bits(out, olen, ol, state, is_all_upper, usx_hcodes, usx_hcode_lens);
+    return (ol / 8) * 4 + (((ol-orig_ol)/8) & 3);
+  } else {
+    var rst = (ol + 7) / 8;
+    ol = append_final_bits(out, rst, ol, state, is_all_upper, usx_hcodes, usx_hcode_lens);
+    return rst;
   }
-  //printf("\n%ld\n", ol);
-  return ret;
 
 }
 
@@ -839,7 +882,7 @@ function getNumFromBits(input, len, bit_no, count) {
      ret += (readBit(input, bit_no) > 0 ? 1 << count : 0);
      bit_no++;
    }
-   return ret;
+   return count < 0 ? ret : -1;
 }
 
 function readCount(input, bit_no, len) {
@@ -880,10 +923,10 @@ function readUnicode(input, bit_no, len) {
 function decodeRepeatArray(input, len, out_arr, out, bit_no, prev_lines_arr, prev_lines_idx,
                             usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates) {
   var dict_len = 0;
-  [dict_len, bit_no] = readCount(input, bit_no, len)
-  if (dict_len < 0)
-    return [bit_no, out];
+  [dict_len, bit_no] = readCount(input, bit_no, len);
   dict_len += NICE_LEN;
+  if (dict_len < NICE_LEN)
+    return [bit_no, out];
   var dist = 0;
   [dist, bit_no] = readCount(input, bit_no, len);
   if (dist < 0)
@@ -909,6 +952,8 @@ function decodeRepeatArray(input, len, out_arr, out, bit_no, prev_lines_arr, pre
     out += (typeof(line) == "string" ? line.substr(dist, dict_len) : line.slice(dist, dict_len));
   } else {
     for (var i = 0; i < dict_len; i++) {
+      if (out >= out_arr.length)
+        break;
       out_arr[out] = line[dist + i];
       out++;
     }
@@ -919,19 +964,21 @@ function decodeRepeatArray(input, len, out_arr, out, bit_no, prev_lines_arr, pre
 function decodeRepeat(input, len, out_arr, out, bit_no) {
   var dict_len = 0;
   [dict_len, bit_no] = readCount(input, bit_no, len);
-  if (dict_len < 0)
-    return [bit_no, out];
   dict_len += NICE_LEN;
+  if (dict_len < NICE_LEN)
+    return [bit_no, out];
   var dist = 0;
   [dist, bit_no] = readCount(input, bit_no, len);
   dist += (NICE_LEN - 1);
-  if (dist < 0)
+  if (dist < NICE_LEN - 1)
     return [bit_no, out];
   //console.log("Decode len: %d, dist: %d\n", dict_len - NICE_LEN, dist - NICE_LEN + 1);
   if (out_arr == null)
     out += out.substr(out.length - dist, dict_len);
   else {
     for (var i = 0; i < dict_len; i++) {
+      if (out >= out_arr.length)
+        break;
       out_arr[out] = out_arr[out - dist];
       out++;
     }
@@ -942,7 +989,7 @@ function decodeRepeat(input, len, out_arr, out, bit_no) {
 function getHexChar(nibble, hex_type) {
   if (nibble >= 0 && nibble <= 9)
     return String.fromCharCode(48 + nibble);
-  else if (hex_type < 3)
+  else if (hex_type < USX_NIB_HEX_UPPER)
     return String.fromCharCode(97 + nibble - 10);
   return String.fromCharCode(65 + nibble - 10);
 }
@@ -968,8 +1015,10 @@ function writeUTF8(out_arr, out, uni) {
 function appendChar(out_arr, out, ch) {
   if (out_arr == null)
     out += ch;
-  else
-    out_arr[out++] = ch.charCodeAt(0);
+  else {
+    if (out < out_arr.length)
+      out_arr[out++] = ch.charCodeAt(0);
+  }
   return out;
 }
 
@@ -977,8 +1026,11 @@ function appendString(out_arr, out, str) {
   if (out_arr == null)
     out += str;
   else {
-    for (var i = 0; i < str.length; i++)
+    for (var i = 0; i < str.length; i++) {
+      if (out >= out_arr.length)
+        break;
       out_arr[out++] = str.charCodeAt(i);
+    }
   }
   return out;
 }
@@ -1088,6 +1140,8 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
       }
       if (h == USX_ALPHA) {
          if (dstate == USX_ALPHA) {
+           if (usx_hcode_lens[USX_ALPHA] == 0 && TERM_BYTE_PRESET_1 == (read8bitCode(input, len, bit_no - SW_CODE_LEN) & (0xFF << (8 - (is_all_upper ? TERM_BYTE_PRESET_1_LEN_UPPER : TERM_BYTE_PRESET_1_LEN_LOWER)))))
+             break; // Terminator for preset 1
            if (is_all_upper) {
              is_upper = is_all_upper = 0;
              continue;
@@ -1145,25 +1199,37 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
             if (rem < 0)
               break;
             rem = usx_templates[idx].length - rem;
+            var eof = false;
             for (var j = 0; j < rem; j++) {
               var c_t = usx_templates[idx][j];
               if (c_t === 'f' || c_t === 'r' || c_t === 't' || c_t === 'o' || c_t === 'F') {
                   var nibble_len = (c_t === 'f' || c_t === 'F' ? 4 : (c_t === 'r' ? 3 : (c_t === 't' ? 2 : 1)));
-                  var nibble_char = getHexChar(getNumFromBits(input, len, bit_no, nibble_len),
+                  var raw_char = getNumFromBits(input, len, bit_no, nibble_len);
+                  if (raw_char < 0) {
+                      eof = true;
+                      break;
+                  }
+                  var nibble_char = getHexChar(raw_char,
                         c_t === 'f' ? USX_NIB_HEX_LOWER : USX_NIB_HEX_UPPER);
                   out = appendChar(out_arr, out, nibble_char);
                   bit_no += nibble_len;
               } else
                 out = appendChar(out_arr, out, c_t);
             }
+            if (eof) break;
           } else
           if (idx == 5) {
             var bin_count;
             [bin_count, bit_no] = readCount(input, bit_no, len);
             if (bin_count < 0)
               break;
+            if (bin_count == 0) // invalid encoding
+              break;
             do {
-              var bin_byte = String.fromCharCode(getNumFromBits(input, len, bit_no, 8));
+              var raw_char = getNumFromBits(input, len, bit_no, 8);
+              if (raw_char < 0)
+                  break;
+              var bin_byte = String.fromCharCode(raw_char);
               out = appendChar(out_arr, out, bin_byte);
               bit_no += 8;
             } while (--bin_count > 0);
@@ -1175,15 +1241,20 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
               [nibble_count, bit_no] = readCount(input, bit_no, len);
               if (nibble_count < 0)
                 break;
+              if (nibble_count == 0) // invalid encoding
+                break;
             }
             do {
               var nibble = getNumFromBits(input, len, bit_no, 4);
-              var nibble_char = getHexChar(nibble, idx);
+              if (nibble < 0)
+                  break;
+              var nibble_char = getHexChar(nibble, idx < 3 ? USX_NIB_HEX_LOWER : USX_NIB_HEX_UPPER);
               out = appendChar(out_arr, out, nibble_char);
               if ((idx == 2 || idx == 4) && (nibble_count == 25 || nibble_count == 21 || nibble_count == 17 || nibble_count == 13))
                 out = appendChar(out_arr, out, '-');
               bit_no += 4;
             } while (--nibble_count > 0);
+            if (nibble_count > 0) break; // reach input eof
           }
           if (dstate == USX_DELTA)
             h = USX_DELTA;

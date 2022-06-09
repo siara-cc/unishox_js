@@ -6,4 +6,9 @@ test*.js.dsx
 .npmrc
 node_modules
 coverage
+unishox2.c
+unishox2.h
+build/*
+diff.txt
+usx2c_caller.exe
 
