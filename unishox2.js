@@ -17,8 +17,8 @@
  *
  */
 
-var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0xE0, 0x80, 0xC0]);
-var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 3, 2, 3]);
+var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0x80, 0xC0, 0xE0]);
+var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 2, 3, 3]);
 var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
 var USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
 
@@ -431,7 +431,7 @@ function compare_arr(arr1, arr2, is_str) {
     if (arr1.length !== arr2.length)
       return false;
     for (var i = 0; i < arr2.length; i++) {
-      if (arr1[i] !== arr2[i])
+      if (arr1.charCodeAt(i) !== arr2[i])
         return false;
     }
   }
@@ -494,7 +494,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
     }
 
     c_in = input[l];
-    if (l > 0 && len > 4 && l < len - 4 && usx_hcode_lens[USX_NUM] > 0 && c_in <= '~') {
+    if (l > 0 && len > 4 && l < len - 4 && usx_hcode_lens[USX_NUM] > 0 && c_in <= (is_str ? '~' : 126)) {
       if (c_in == input[l - 1] && c_in == input[l + 1] && c_in == input[l + 2] &&
           c_in == input[l + 3]) {
         var rpt_count = l + 4;
@@ -629,7 +629,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
       var i;
       for (i = 0; i < 6; i++) {
         var seq_len = usx_freq_seq[i].length;
-        if (len - seq_len > 0 && l < len - seq_len) {
+        if (len - seq_len >= 0 && l <= len - seq_len) {
           if (usx_hcode_lens[usx_freq_codes[i] >> 5] &&
               compare_arr(usx_freq_seq[i].slice(0, seq_len), input.slice(l, l + seq_len), is_str)) {
             [ol, state] = append_code(out, olen, ol, usx_freq_codes[i], state, usx_hcodes, usx_hcode_lens);
@@ -1285,7 +1285,7 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
           if (count < 0)
             break;
           count += 4;
-          var rpt_c = (out_arr == null ? out.charAt(out.length - 1) : out_arr[out - 1]);
+          var rpt_c = (out_arr == null ? out.charAt(out.length - 1) : String.fromCharCode(out_arr[out - 1]));
           while (count--)
             out = appendChar(out_arr, out, rpt_c);
         } else if (h == USX_SYM && v > 24) {

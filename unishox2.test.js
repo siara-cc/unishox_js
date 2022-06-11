@@ -1,9 +1,12 @@
 const { run } = require('jest');
 const usx2 = require('./unishox2');
 var util = require('util');
+const fs = require("fs");
+const execSync = require('child_process').execSync;
+const execFileSync = require('child_process').execFileSync;
 
-var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0xE0, 0x80, 0xC0]);
-var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 3, 2, 3]);
+var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0x80, 0xC0, 0xE0]);
+var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 2, 3, 3]);
 var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
 var USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
 
@@ -15,34 +18,37 @@ var compressed_arr = [];
 var tot_input_len = 0;
 var tot_comp_len = 0;
 
+var did_interop_tests_run = false;
+
 function run_test(str) {
 
   var utf8arr = new util.TextEncoder("utf-8").encode(str);
   var buf_len = usx2.unishox2_compress(str, str.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
-  var buf_cmp1 = buf.subarray(0, buf_len);
+  var buf_cmp1 = buf.slice(0, buf_len);
   var out_str = usx2.unishox2_decompress(buf, buf_len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var buf_len = usx2.unishox2_compress(utf8arr, utf8arr.length, buf, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
-  var buf_cmp2 = buf.subarray(0, buf_len);
+  var buf_cmp2 = buf.slice(0, buf_len);
   var out_len = usx2.unishox2_decompress(buf, buf_len, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
   var out_str1 = new util.TextDecoder("utf-8").decode(buf1.slice(0, out_len));
   var input_len = encodeURI(str).split(/%..|./).length - 1;
   var out_usx2c = null;
-  /*if (fs.existsSync("usx2c_caller.exe")) {
+  if (fs.existsSync("usx2c_caller.exe")) {
     try {
-      const output = execFileSync("./usx2c_caller.exe", [str], { encoding: 'utf-8' });
-      if (output != null)
+      const output = execFileSync("./usx2c_caller.exe", [str], { encoding: 'utf-8', windowsHide: true });
+      if (output != null) {
         out_usx2c = output;
+        did_interop_tests_run = true;
+      }
     } catch (e) {
       console.log('Exception: ', e);
     }
-  }*/
+  }
   test(str + " (" + buf_len + "/" + input_len + " = " + (Math.round((input_len-buf_len)*1000/input_len) / 10) + "%)", () => {
     expect(out_str).toBe(str);
     expect(out_str1).toBe(str);
-    /*if (out_usx2c != null) {
-      console.log("Output:",out_usx2c);
-      expect(buf_cmp1.toString()).toBe(buf_cmp2.toString());
-    }*/
+    if (out_usx2c != null) {
+      expect(out_usx2c).toBe(buf_cmp2.toString());
+    }
   });
   input_arr[input_arr.length] = str;
   out_len = usx2.unishox2_compress(input_arr, input_arr.length - 1, buf1, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
@@ -51,10 +57,7 @@ function run_test(str) {
   tot_comp_len += out_len;
   
 }
-/*
-const fs = require("fs");
-const execSync = require('child_process').execSync;
-const { execFile, execFileSync } = require('child_process');
+
 if (!fs.existsSync("unishox2.c")) {
   const output = execSync("curl -H 'Cache-Control: no-cache, no-store' https://raw.githubusercontent.com/siara-cc/Unishox/master/unishox2.c > unishox2.c", { encoding: 'utf-8' });
   console.log('Downloading unishox2.c:\n', output);
@@ -70,7 +73,7 @@ if (!fs.existsSync("usx2c_caller.exe")) {
     console.log('Exception: ', e);
   }
 }
-*/
+
 run_test("Hello");
 run_test("Hello World");
 run_test("The quick brown fox jumped over the lazy dog");
@@ -325,3 +328,5 @@ test("Testing array compression (utf-8 uint8 array) (" + tot_comp_len + "/" + to
     expect(decoder.decode(buf.slice(0, dlen))).toStrictEqual(decoder.decode(input_arr[i]));
   }
 });
+
+console.log("Interop tests were " + (did_interop_tests_run ? "" : "not ") + "run");
