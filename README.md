@@ -22,7 +22,7 @@ Unishox is an hybrid encoder (entropy, dictionary and delta coding).  It works b
 
 The model used for arriving at the prefix-free code is shown below:
 
-![Promo video](https://github.com/siara-cc/Unishox/blob/master/demo/model.png?raw=true)
+![Model](https://github.com/siara-cc/Unishox2/blob/master/promo/model.png?raw=true)
 
 The complete specification can be found in this article: [Unishox 2 - Guaranteed Configurable Compression for Short Strings using Entropy, Dictionary and Delta encoding techniques](https://github.com/siara-cc/Unishox/blob/master/Unishox_Article_2.pdf?raw=true).
 
@@ -108,6 +108,28 @@ Depending on the input string, you can press more juice out of the compressor by
 
 Please refer to `unishox_compress_lines` and `unishox_decompress_lines` functions in the library to make use of these. However in most cases, the default Simple API provides optimimum compression.
 
+# Interoperability with the C Library
+
+Strings that were compressed with this library can be decompressed with the [C Library](https://github.com/siara-cc/Unishox) and vice-versa.  It always works if the input is composed of ASCII characters between 32 to 126.  For other UTF-8 inputs, if you wish the output to be used with the other library, please always provide the input as a Uint8Array and output as Uint8Array and not as a Javascript string as shown below:
+
+```Javascript
+var usx = require("./unishox2.js")
+var utf8bytes = new TextEncoder().encode("La beauté est pas dans le visage. La beauté est la lumière dans le coeur.");
+var cbuf = new Uint8Array(100); // A buffer with arbitrary length
+var clen = usx.unishox2_compress_simple(utf8bytes, utf8bytes.length, cbuf);
+var out_str = usx.unishox2_decompress_simple(out_buf, out_len);
+console.log(out_str);  // This won't work
+
+var dbuf = new Uint8Array(100); // A buffer with arbitrary length
+var dlen = usx.unishox2_decompress(cbuf, clen, dbuf, usx.USX_HCODES_DFLT, usx.USX_HCODE_LENS_DFLT, usx.USX_FREQ_SEQ_DFLT, usx.USX_TEMPLATES);
+out_str = new TextDecoder("utf-8").decode(dbuf);
+console.log(out_str);  // This works and cbuf and clen can be passed to the C Library for decompression
+```
+
+The reason for having to use UTF-8 encoded byte buffers is that the distances for repeating sequences are stored in number of bytes and it varies between a Javascript string and the corresponding UTF-8 encoded set of bytes.
+
+The Jest Unit test program downloads the C library, compiles it and compares the compressed output of each string in the test suite with that of the C library.
+
 # Integrating with Firebase Firestore
 
 Unishox can be used to store more data than the 1GB free limit in Firestore database by storing text content as a Blob.  For example, 
@@ -130,6 +152,7 @@ Unishox supports the entire Unicode character set.  As of now it supports UTF-8 
 
 # Projects that use Unishox
 
+- [Unishox C Library](https://github.com/siara-cc/Unishox)
 - [Unishox Compression Library for Arduino Progmem](https://github.com/siara-cc/Unishox_Arduino_Progmem_lib)
 - [Sqlite3 User Defined Function as loadable extension](https://github.com/siara-cc/Unishox_Sqlite_UDF)
 - [Sqlite3 Library for ESP32](https://github.com/siara-cc/esp32_arduino_sqlite3_lib)
