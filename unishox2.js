@@ -16,7 +16,7 @@
  * @author Arundale Ramanathan
  *
  */
-
+ 
 var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0x80, 0xC0, 0xE0]);
 var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 2, 3, 3]);
 var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
@@ -797,9 +797,11 @@ function readBit(input, bit_no) {
 function read8bitCode(input, len, bit_no) {
   var bit_pos = bit_no & 0x07;
   var char_pos = bit_no >> 3;
+  len >>= 3;
   var code = (input[char_pos] << bit_pos) & 0xFF;
-  if ((bit_no + bit_pos) < len) {
-    code |= input[++char_pos] >> (8 - bit_pos);
+  char_pos++;
+  if (char_pos < len) {
+    code |= input[char_pos] >> (8 - bit_pos);
   } else
     code |= (0xFF >> (8 - bit_pos));
   return [code, bit_no];
@@ -926,19 +928,21 @@ function decodeRepeatArray(input, len, out_arr, out, bit_no, prev_lines_arr, pre
   [dict_len, bit_no] = readCount(input, bit_no, len);
   dict_len += NICE_LEN;
   if (dict_len < NICE_LEN)
-    return [bit_no, out];
+    return [-1, out];
   var dist = 0;
   [dist, bit_no] = readCount(input, bit_no, len);
   if (dist < 0)
-    return [bit_no, out];
+    return [-1, out];
   var ctx = 0;
   [ctx, bit_no] = readCount(input, bit_no, len);
   if (ctx < 0)
-    return [bit_no, out];
+    return [-1, out];
   var line;
   if (ctx == 0)
     line = (out_arr == null ? out : out_arr);
   else {
+    if (prev_lines_idx < ctx)
+      return [-1, out];
     if (out_arr == null) {
       line = unishox2_decompress(prev_lines_arr, prev_lines_idx - ctx, null,
               usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
@@ -966,16 +970,18 @@ function decodeRepeat(input, len, out_arr, out, bit_no) {
   [dict_len, bit_no] = readCount(input, bit_no, len);
   dict_len += NICE_LEN;
   if (dict_len < NICE_LEN)
-    return [bit_no, out];
+    return [-1, out];
   var dist = 0;
   [dist, bit_no] = readCount(input, bit_no, len);
   dist += (NICE_LEN - 1);
   if (dist < NICE_LEN - 1)
-    return [bit_no, out];
+    return [-1, out];
   //console.log("Decode len: %d, dist: %d\n", dict_len - NICE_LEN, dist - NICE_LEN + 1);
-  if (out_arr == null)
+  if (out_arr == null) {
+    if (out.length < dist)
+      return [-1, out];
     out += out.substr(out.length - dist, dict_len);
-  else {
+  } else {
     for (var i = 0; i < dict_len; i++) {
       if (out >= out_arr.length)
         break;
@@ -1093,6 +1099,8 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
                 [bit_no, out] = decodeRepeatArray(input, len, out_arr, out, bit_no, 
                   prev_lines_arr, prev_lines_idx, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
               }
+              if (bit_no < 0)
+                return out;
               h = dstate;
               continue;
             }
@@ -1175,6 +1183,8 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
           [bit_no, out] = decodeRepeatArray(input, len, out_arr, out, bit_no, 
             prev_lines_arr, prev_lines_idx, usx_hcodes, usx_hcode_lens, usx_freq_seq, usx_templates);
         }
+        if (bit_no < 0)
+          break;
         continue;
       } else
       if (h == USX_DELTA) {
@@ -1192,13 +1202,22 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
         if (h == USX_NUM && v == 0) {
           var idx;
           [idx, bit_no] = getStepCodeIdx(input, len, bit_no, 5);
+          if (idx == 99)
+            break;
           if (idx == 0) {
             [idx, bit_no] = getStepCodeIdx(input, len, bit_no, 4);
+            if (idx >= 5)
+              break;
             var rem;
             [rem, bit_no] = readCount(input, bit_no, len);
             if (rem < 0)
               break;
-            rem = usx_templates[idx].length - rem;
+            if (usx_templates[idx] == null)
+              break;
+            var tlen = usx_templates[idx].length;
+            if (rem > tlen)
+              break;
+            rem = tlen - rem;
             var eof = false;
             for (var j = 0; j < rem; j++) {
               var c_t = usx_templates[idx][j];

@@ -1,6 +1,8 @@
 # Unishox Javascript Library - Guaranteed Compression for Short Strings
 
 [![Node.js CI](https://github.com/siara-cc/unishox_js/actions/workflows/node.js.yml/badge.svg)](https://github.com/siara-cc/unishox_js/actions/workflows/node.js.yml)
+[![npm ver](https://img.shields.io/npm/v/unishox2.siara.cc)](https://www.npmjs.com/package/unishox2.siara.cc)
+[![afl](https://img.shields.io/badge/afl%20crashes%2Fhangs-0-green)](https://lcamtuf.coredump.cx/afl/)
 
 This library was developed to individually compress and decompress small strings. In general compression utilities such as `zip`, `gzip` do not compress short strings well and often expand them. They also use lots of memory which makes them unusable in constrained environments like Arduino.
 
@@ -107,6 +109,8 @@ Depending on the input string, you can press more juice out of the compressor by
 16. Favor HTML
 
 Please refer to `unishox_compress_lines` and `unishox_decompress_lines` functions in the library to make use of these. However in most cases, the default Simple API provides optimimum compression.
+
+Please see [here for API documentation](https://siara-cc.github.io/Unishox2/index.html).
 
 # Interoperability with the C Library
 
