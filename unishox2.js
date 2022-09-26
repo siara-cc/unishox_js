@@ -1335,6 +1335,8 @@ function unishox2_decompress_simple(input, len) {
   return unishox2_decompress(input, len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
 }
 
-module.exports = {unishox2_compress, unishox2_compress_simple,
+if("module" in window){
+  module.exports = {unishox2_compress, unishox2_compress_simple,
                    unishox2_decompress, unishox2_decompress_simple,
-                   USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES};
+                     USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES};
+}
