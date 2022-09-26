@@ -19,6 +19,8 @@
  
 var USX_HCODES_DFLT = new Uint8Array([0x00, 0x40, 0x80, 0xC0, 0xE0]);
 var USX_HCODE_LENS_DFLT = new Uint8Array([2, 2, 2, 3, 3]);
+var USX_HCODES_ALPHA_NUM_SYM_ONLY = new Uint8Array([0x00, 0x80, 0xC0, 0x00, 0x00]);
+var USX_HCODE_LENS_ALPHA_NUM_SYM_ONLY = new Uint8Array([1, 2, 2, 0, 0]);
 var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
 var USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
 
@@ -1212,7 +1214,7 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
             [rem, bit_no] = readCount(input, bit_no, len);
             if (rem < 0)
               break;
-            if (usx_templates[idx] == null)
+            if (usx_templates == null || usx_templates[idx] == null)
               break;
             var tlen = usx_templates[idx].length;
             if (rem > tlen)
@@ -1333,6 +1335,8 @@ function unishox2_decompress_simple(input, len) {
   return unishox2_decompress(input, len, null, USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES);
 }
 
-module.exports = {unishox2_compress, unishox2_compress_simple,
+if (typeof module !== "undefined" && module.exports){
+  module.exports = {unishox2_compress, unishox2_compress_simple,
                    unishox2_decompress, unishox2_decompress_simple,
-                   USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES};
+                     USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES};
+}
