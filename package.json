@@ -1,6 +1,6 @@
 {
-  "name": "@siara-cc/unishox_js",
-  "version": "1.1.3",
+  "name": "unishox2.siara.cc",
+  "version": "1.1.5",
   "description": "Compressor and decompressor for short strings",
   "main": "unishox2.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "url": "git+https://github.com/siara-cc/unishox_js.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "keywords": [
     "compression",
