@@ -23,6 +23,8 @@ var USX_HCODES_ALPHA_NUM_SYM_ONLY = new Uint8Array([0x00, 0x80, 0xC0, 0x00, 0x00
 var USX_HCODE_LENS_ALPHA_NUM_SYM_ONLY = new Uint8Array([1, 2, 2, 0, 0]);
 var USX_FREQ_SEQ_DFLT = ["\": \"", "\": ", "</", "=\"", "\":\"", "://"];
 var USX_TEMPLATES = ["tfff-of-tfTtf:rf:rf.fffZ", "tfff-of-tf", "(fff) fff-ffff", "tf:rf:rf", 0];
+var magic_byte = '\x80';
+var magic_bits = 1;
 
 const USX_ALPHA = 0;
 const USX_SYM = 1;
@@ -472,7 +474,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
   prev_uni = 0;
   state = USX_ALPHA;
   is_all_upper = false;
-  ol = append_bits(out, olen, ol, 0x80, 1); // magic bit
+  ol = append_bits(out, olen, ol, magic_byte, magic_bits);
   for (l=0; l<len; l++) {
 
     if (usx_hcode_lens[USX_DICT] > 0 && l < (len - NICE_LEN + 1)) {
@@ -1053,7 +1055,7 @@ function unishox2_decompress(input, len, out_arr, usx_hcodes, usx_hcode_lens, us
   var prev_lines_idx;
 
   init_coder();
-  bit_no = 1; // ignore the magic bit
+  bit_no = magic_bits;
   dstate = h = USX_ALPHA;
   is_all_upper = 0;
   var prev_uni = 0;
@@ -1337,6 +1339,6 @@ function unishox2_decompress_simple(input, len) {
 
 if (typeof module !== "undefined" && module.exports){
   module.exports = {unishox2_compress, unishox2_compress_simple,
-                   unishox2_decompress, unishox2_decompress_simple,
+                   unishox2_decompress, unishox2_decompress_simple, magic_byte, magic_bits,
                      USX_HCODES_DFLT, USX_HCODE_LENS_DFLT, USX_FREQ_SEQ_DFLT, USX_TEMPLATES};
 }
