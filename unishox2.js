@@ -727,7 +727,7 @@ function unishox2_compress(input, len, out, usx_hcodes, usx_hcode_lens, usx_freq
     if (c_in === 9) {
       [ol, state] = append_code(out, olen, ol, TAB_CODE, state, usx_hcodes, usx_hcode_lens);
     } else {
-      var uni, utf8len;
+      var uni, utf8len, uni2;
       [uni, utf8len] = readUTF8(input, len, l);
       if (uni > 0) {
         l += utf8len;
