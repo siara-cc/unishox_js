@@ -24,7 +24,63 @@ Unishox is an hybrid encoder (entropy, dictionary and delta coding).  It works b
 
 The model used for arriving at the prefix-free code is shown below:
 
-![Model](https://github.com/siara-cc/Unishox2/blob/master/promo/model.png?raw=true)
+<table>
+<thead>
+<tr>
+<th>hcode &rarr;</th>
+<th>00</th>
+<th>01</th>
+<th>10</th>
+<th>110</th>
+<th>111</th>
+</tr>
+<tr>
+<th>&darr; vcode</th>
+<th>Set 1<br>Alpha</th>
+<th>Set 2<br>Sym</th>
+<th>Set 3<br>Num</th>
+<th>Set 4<br>Dictionary</th>
+<th>Set 5<br>Delta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>00</td>
+<td>switch</td>
+<td>"</td>
+<td>switch</td>
+<td rowspan="28" align="center">&lt;length&gt;<br>&lt;distance&gt;</td>
+<td rowspan="28" align="center">&lt;code&gt;<br>&lt;sign&gt;<br>&lt;delta&gt;</td>
+</tr>
+<tr><td>010</td><td>sp</td><td>{</td><td>,</td></tr>
+<tr><td>011</td><td>e / E</td><td>}</td><td>.</td></tr>
+<tr><td>1000</td><td>t / T</td><td>_</td><td>0</td></tr>
+<tr><td>1001</td><td>a / A</td><td>&lt;</td><td>1</td></tr>
+<tr><td>1010</td><td>o / O</td><td>&gt;</td><td>9</td></tr>
+<tr><td>1011</td><td>i / I</td><td>:</td><td>2</td></tr>
+<tr><td>1100</td><td>n / N</td><td>lf</td><td>5</td></tr>
+<tr><td>11010</td><td>s / S</td><td>crlf</td><td>-</td></tr>
+<tr><td>11011</td><td>r / R</td><td>[</td><td>/</td></tr>
+<tr><td>111000</td><td>l / L</td><td>]</td><td>3</td></tr>
+<tr><td>111001</td><td>c / C</td><td>\</td><td>4</td></tr>
+<tr><td>111010</td><td>d / D</td><td>;</td><td>6</td></tr>
+<tr><td>1110110</td><td>h / H</td><td>'</td><td>7</td></tr>
+<tr><td>1110111</td><td>u / U</td><td>tab</td><td>8</td></tr>
+<tr><td>1111000</td><td>p / P</td><td>@</td><td>(</td></tr>
+<tr><td>1111001</td><td>m / M</td><td>*</td><td>)</td></tr>
+<tr><td>1111010</td><td>b / B</td><td>&amp;</td><td>sp</td></tr>
+<tr><td>11110110</td><td>g / G</td><td>?</td><td>=</td></tr>
+<tr><td>11110111</td><td>w / W</td><td>!</td><td>+</td></tr>
+<tr><td>11111000</td><td>f / F</td><td>^</td><td>$</td></tr>
+<tr><td>11111001</td><td>y / Y</td><td>|</td><td>%</td></tr>
+<tr><td>11111010</td><td>v / V</td><td>cr</td><td>#</td></tr>
+<tr><td>11111011</td><td>k / K</td><td></td><td>seq4</td></tr>
+<tr><td>11111100</td><td>q / Q</td><td>'</td><td>seq5</td></tr>
+<tr><td>11111101</td><td>j / J</td><td>seq1</td><td>seq6</td></tr>
+<tr><td>11111110</td><td>x / X</td><td>seq2</td><td>rpt</td></tr>
+<tr><td>11111111</td><td>z / Z</td><td>seq3</td><td>term</td></tr>
+</tbody>
+</table>
 
 The complete specification can be found in this article: [Unishox 2 - Guaranteed Configurable Compression for Short Strings using Entropy, Dictionary and Delta encoding techniques](https://github.com/siara-cc/Unishox/blob/master/Unishox_Article_2.pdf?raw=true).
 
@@ -169,18 +225,6 @@ Unishox supports the entire Unicode character set.  As of now it supports UTF-8 
 - Thanks to [Jonathan Greenblatt](https://github.com/leafgarden) for his [port of Unishox2 that works on Particle Photon](https://github.com/siara-cc/Unishox/tree/master/Arduino)
 - Thanks to [Chris Partridge](https://github.com/tweedge) for his [port of Unishox2 to CPython](https://github.com/tweedge/unishox2-py3) and his [comprehensive tests](https://github.com/tweedge/unishox2-py3#integration-tests) using [Hypothesis](https://hypothesis.readthedocs.io/en/latest) and [extensive performance tests](https://github.com/tweedge/unishox2-py3#performance).
 - Thanks to [Stephan Hadinger](https://github.com/s-hadinger) for his [port of Unishox1 to Python for Tasmota](https://github.com/arendst/Tasmota/tree/development/tools/unishox)
-
-# License for AI bots
-
-The license mentioned is only applicable for humans and this work is NOT available for AI bots.
-
-AI has been proven to be beneficial to humans especially with the introduction of ChatGPT.  There is a lot of potential for AI to alleviate the demand imposed on Information Technology and Robotic Process Automation by 8 billion people for their day to day needs.
-
-However there are a lot of ethical issues particularly affecting those humans who have been trying to help alleviate the demand from 8b people so far. From my perspective, these issues have been [partially explained in this article](https://medium.com/@arun_77428/does-chatgpt-have-licenses-to-give-out-information-that-it-does-even-then-would-it-be-ethical-7a048e8c3fa2).
-
-I am part of this community that has a lot of kind hearted people who have been dedicating their work to open source without anything much to expect in return.  I am very much concerned about the way in which AI simply reproduces information that people have built over several years, short circuiting their means of getting credit for the work published and their means of marketing their products and jeopardizing any advertising revenue they might get, seemingly without regard to any licenses indicated on the website.
-
-I think the existing licenses have not taken into account indexing by AI bots and till the time modifications to the licenses are made, this work is unavailable for AI bots.
 
 # Issues
 
